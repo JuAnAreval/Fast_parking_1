@@ -1,0 +1,430 @@
+.parking-reservas-page {
+  min-height: calc(100vh - 80px);
+  padding: 12px 0 28px;
+}
+
+.parking-reservas-shell {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+  display: grid;
+  gap: 14px;
+}
+
+.parking-reservas-shell-loading {
+  text-align: center;
+  color: #475569;
+  font-size: 16px;
+  padding: 26px;
+}
+
+.parking-reservas-hero {
+  border-radius: 16px;
+  padding: 16px;
+  background: linear-gradient(120deg, #111827 0%, #1f2937 58%, #334155 100%);
+  color: #ffffff;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.parking-reservas-kicker {
+  margin: 0;
+  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  opacity: 0.88;
+}
+
+.parking-reservas-hero h1 {
+  margin: 4px 0 8px;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.parking-reservas-hero p {
+  margin: 0;
+  font-size: 14px;
+  max-width: 580px;
+  opacity: 0.92;
+}
+
+.parking-reservas-hero-actions {
+  display: grid;
+  gap: 8px;
+  min-width: 185px;
+}
+
+.parking-reservas-link-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  border-radius: 11px;
+  padding: 0 14px;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 8px 14px rgba(15, 23, 42, 0.14);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.parking-reservas-link-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 16px rgba(15, 23, 42, 0.18);
+}
+
+.parking-reservas-link-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.parking-reservas-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.parking-reservas-stat-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.parking-reservas-stat-card span {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.parking-reservas-stat-card strong {
+  color: #0f172a;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.parking-reservas-list-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.parking-reservas-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.parking-reservas-list-head h2 {
+  margin: 0;
+  font-size: 21px;
+  color: #0f172a;
+}
+
+.parking-reservas-total {
+  font-size: 13px;
+  color: #475569;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-weight: 600;
+}
+
+.parking-reservas-list {
+  display: grid;
+  gap: 10px;
+}
+
+.parking-reservas-empty {
+  margin: 4px 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.parking-reserva-card {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 14px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.parking-reserva-card.state-pendiente {
+  border-left: 4px solid #d97706;
+}
+
+.parking-reserva-card.state-activa {
+  border-left: 4px solid #16a34a;
+}
+
+.parking-reserva-card.state-completada {
+  border-left: 4px solid #475569;
+}
+
+.parking-reserva-card.state-cancelada {
+  border-left: 4px solid #dc2626;
+}
+
+.parking-reserva-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.parking-reserva-head-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.parking-reserva-head h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.parking-reserva-date {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.parking-reserva-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.parking-reserva-summary-item {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+  min-height: 82px;
+  align-content: center;
+  padding: 12px 14px;
+  border: 1px solid #dbe7f5;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.parking-reserva-summary-item span {
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+.parking-reserva-summary-item strong {
+  color: #0f172a;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.parking-reserva-summary-item.is-highlight {
+  border-color: #cfe0fb;
+  background: linear-gradient(135deg, #eef5ff 0%, #e0ecff 100%);
+}
+
+.parking-reserva-summary-item.is-highlight strong {
+  font-size: 20px;
+}
+
+.parking-status-badge {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.parking-status-badge.pendiente {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.parking-status-badge.activa {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.parking-status-badge.completada {
+  background: #e2e8f0;
+  color: #334155;
+}
+
+.parking-status-badge.cancelada {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.parking-reserva-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.parking-reserva-grid p {
+  margin: 0;
+  display: grid;
+  gap: 3px;
+  min-height: 74px;
+  align-content: center;
+  padding: 10px 12px;
+  border: 1px solid #d8e2ee;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.parking-reserva-grid span {
+  color: #64748b;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  font-weight: 700;
+}
+
+.parking-reserva-grid strong {
+  color: #0f172a;
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.parking-reserva-note {
+  margin: 10px 0 0;
+  color: #334155;
+  font-size: 13px;
+}
+
+.parking-reserva-note span {
+  font-weight: 700;
+}
+
+.parking-reserva-actions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.parking-btn {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.parking-btn.btn-authorize {
+  background: #e2e8f0;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.parking-btn.btn-cancel {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.parking-btn.btn-complete {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.parking-btn:hover {
+  filter: brightness(0.97);
+}
+
+@media (max-width: 980px) {
+  .parking-reserva-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .parking-reservas-shell {
+    border-radius: 14px;
+    padding: 16px;
+  }
+
+  .parking-reservas-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .parking-reservas-hero-actions {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .parking-reservas-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 620px) {
+  .parking-reservas-hero h1 {
+    font-size: 24px;
+  }
+
+  .parking-reservas-hero-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .parking-reservas-list-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .parking-reserva-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .parking-reserva-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .parking-reserva-actions {
+    flex-direction: column;
+  }
+
+  .parking-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

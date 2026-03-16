@@ -1,0 +1,489 @@
+.parking-config-page {
+  min-height: calc(100vh - 80px);
+  padding: 12px 0 28px;
+}
+
+.parking-config-shell {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  padding: 24px;
+}
+
+.parking-config-loading {
+  text-align: center;
+  font-size: 16px;
+  color: #475569;
+  padding: 24px;
+}
+
+.parking-config-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.parking-config-header h1 {
+  margin: 0;
+  font-size: 31px;
+  line-height: 1.12;
+  color: #0f172a;
+}
+
+.parking-config-header p {
+  margin-top: 8px;
+  color: #475569;
+  font-size: 15px;
+}
+
+.parking-config-header-side {
+  display: grid;
+  gap: 7px;
+  width: 100%;
+}
+
+.parking-config-flow-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.availability-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.availability-pill.is-on {
+  background: #e9f8ec;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.availability-pill.is-off {
+  background: #fef1ef;
+  color: #991b1b;
+  border-color: #f9cfc9;
+}
+
+.parking-config-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.config-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.config-summary-row span {
+  display: block;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.config-summary-row strong {
+  font-size: 19px;
+  color: #0f172a;
+}
+
+.parking-config-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.config-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  animation: fade-up 0.35s ease forwards;
+}
+
+.config-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 19px;
+  color: #0f172a;
+}
+
+.config-panel-intro {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.config-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.config-fields.is-two-columns {
+  grid-template-columns: 1fr;
+}
+
+.config-fields label,
+.tarifa-card label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
+.config-fields input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  height: 40px;
+  padding: 0 11px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.config-fields input:focus {
+  outline: none;
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.14);
+}
+
+.field-help {
+  margin-top: 1px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.availability-toggle {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  min-height: 40px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0 12px;
+}
+
+.availability-toggle.is-on {
+  background: #edf9f1;
+  color: #166534;
+  border-color: #bde8c9;
+}
+
+.availability-toggle.is-off {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #f8d0d0;
+}
+
+.location-actions {
+  margin: 4px 0 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.map-action-btn {
+  width: fit-content;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.map-action-btn:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+}
+
+.map-action-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.location-coords-preview {
+  margin: 0;
+  font-size: 12px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.config-help-text {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.config-map {
+  height: 360px;
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.config-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.tarifa-help {
+  margin-bottom: 14px;
+}
+
+.tarifa-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.tarifa-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.tarifa-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+}
+
+.money-input {
+  display: flex;
+  align-items: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.money-input span {
+  min-width: 44px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-right: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+.money-input input {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  height: 40px;
+  padding: 0 11px;
+  font-size: 14px;
+  color: #0f172a;
+  background: transparent;
+}
+
+.money-input input:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+.money-input:focus-within {
+  border-color: #334155;
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.14);
+}
+
+.tarifa-preview {
+  margin: 0;
+  font-size: 13px;
+  color: #1f7a62;
+  font-weight: 700;
+}
+
+.config-panel-footer {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.save-section-btn {
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(120deg, #0f172a 0%, #334155 100%);
+  color: #ffffff;
+  min-width: 210px;
+  height: 42px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
+}
+
+.save-section-btn:hover {
+  filter: brightness(1.04);
+}
+
+.save-section-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.save-section-btn.is-secondary {
+  background: linear-gradient(120deg, #14532d 0%, #1f7a51 100%);
+  box-shadow: 0 10px 20px rgba(20, 83, 45, 0.2);
+}
+
+.save-section-btn.is-tertiary {
+  background: linear-gradient(120deg, #2f3f58 0%, #586e8d 100%);
+  box-shadow: 0 10px 20px rgba(47, 63, 88, 0.2);
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+[data-theme="dark"] .parking-config-page {
+  background: none;
+}
+
+[data-theme="dark"] .parking-config-header {
+  border-bottom-color: #334155;
+}
+
+[data-theme="dark"] .parking-config-header p,
+[data-theme="dark"] .parking-config-flow-note,
+[data-theme="dark"] .config-panel-intro,
+[data-theme="dark"] .field-help,
+[data-theme="dark"] .location-coords-preview,
+[data-theme="dark"] .config-help-text {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .map-action-btn {
+  background: #17253a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .map-action-btn:hover {
+  background: #22344e;
+  border-color: #475569;
+}
+
+[data-theme="dark"] .money-input {
+  background: #0b1220;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .money-input span {
+  background: #17253a;
+  border-right-color: #334155;
+  color: #d1d9e8;
+}
+
+[data-theme="dark"] .money-input input {
+  color: #e2e8f0;
+}
+
+@media (max-width: 1100px) {
+  .config-panel-wide {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .parking-config-shell {
+    padding: 16px;
+    border-radius: 14px;
+  }
+
+  .parking-config-header-side {
+    justify-items: flex-start;
+    width: 100%;
+  }
+
+  .parking-config-header h1 {
+    font-size: 24px;
+  }
+
+  .config-fields.is-two-columns {
+    grid-template-columns: 1fr;
+  }
+
+  .tarifa-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .config-map {
+    height: 300px;
+  }
+
+  .location-actions {
+    margin-top: 0;
+  }
+
+  .map-action-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .config-panel-footer {
+    justify-content: stretch;
+  }
+
+  .save-section-btn {
+    width: 100%;
+  }
+}

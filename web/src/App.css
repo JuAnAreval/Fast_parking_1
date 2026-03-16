@@ -1,0 +1,663 @@
+:root {
+  --primary-900: #0f172a;
+  --primary-700: #1f2937;
+  --primary-500: #334155;
+  --bg-page: #ffffff;
+  --bg-soft: #f8fafc;
+  --surface: #ffffff;
+  --surface-2: #f8fafc;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --border: #e2e8f0;
+  --elevated-border: #dbe2ea;
+  --app-bg: #ffffff;
+  --success: #16a34a;
+  --error: #dc2626;
+  --warning: #d97706;
+  --shadow-sm: 0 8px 20px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 16px 36px rgba(15, 23, 42, 0.1);
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 10px;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+[data-theme="dark"] {
+  --primary-900: #e2e8f0;
+  --primary-700: #cbd5e1;
+  --primary-500: #94a3b8;
+  --bg-page: #0b1220;
+  --bg-soft: #111c2f;
+  --surface: #0f172a;
+  --surface-2: #111b30;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --border: #243246;
+  --elevated-border: #334155;
+  --app-bg:
+    radial-gradient(circle at 0% 0%, rgba(148, 163, 184, 0.16), transparent 36%),
+    radial-gradient(circle at 100% 10%, rgba(71, 85, 105, 0.22), transparent 32%),
+    linear-gradient(180deg, #060b16 0%, #0a1323 48%, #0b1220 100%);
+  --shadow-sm: 0 8px 24px rgba(2, 6, 23, 0.48);
+  --shadow-md: 0 16px 38px rgba(2, 6, 23, 0.56);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: "Poppins", "Segoe UI", Arial, sans-serif;
+  color: var(--text-primary);
+  background: var(--app-bg);
+}
+
+a {
+  color: inherit;
+}
+
+.auth-layout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 16px;
+}
+
+.main-layout {
+  min-height: 100vh;
+}
+
+.main-content {
+  max-width: 1260px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.auth-box {
+  width: 100%;
+  max-width: 450px;
+  border-radius: var(--radius-lg);
+  background: #ffffff;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+  padding: 34px 30px;
+  text-align: center;
+}
+
+.auth-box h1 {
+  color: var(--primary-900);
+  font-size: 31px;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.auth-box p {
+  color: var(--text-secondary);
+  margin-bottom: 22px;
+  font-size: 14px;
+}
+
+.auth-box form {
+  display: grid;
+  gap: 2px;
+}
+
+.auth-box .input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 15px;
+  outline: none;
+  background: #ffffff;
+  color: var(--text-primary);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-box .input:focus {
+  border-color: var(--primary-700);
+  box-shadow: 0 0 0 3px rgba(51, 65, 85, 0.14);
+}
+
+.auth-box .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.auth-box .btn-primary {
+  background: linear-gradient(120deg, var(--primary-900) 0%, var(--primary-700) 58%, var(--primary-500) 100%);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.2);
+}
+
+.auth-box .btn-primary:hover {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.opacity-75 {
+  opacity: 0.75;
+}
+
+.cursor-not-allowed {
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  margin: 10px 0 12px;
+  border: 1px solid transparent;
+}
+
+.alert-success {
+  background: #ecfdf3;
+  color: #166534;
+  border-color: #bbf7d0;
+}
+
+.alert-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.spinner {
+  border: 3px solid #e2e8f0;
+  border-top: 3px solid var(--primary-700);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.navbar-root {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(219, 234, 254, 0.9));
+  border-bottom: 1px solid #bfdbfe;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.16);
+}
+
+.navbar-inner {
+  max-width: 1260px;
+  margin: 0 auto;
+  min-height: 68px;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.navbar-brand-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.navbar-brand {
+  color: #1e3a8a;
+  text-decoration: none;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+.navbar-badge {
+  background: linear-gradient(120deg, #1d4ed8, #2563eb);
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.navbar-park-name {
+  color: var(--text-secondary);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
+.navbar-desktop {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.navbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  text-decoration: none;
+  padding: 9px 13px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: #1e40af;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.navbar-link:hover {
+  background: #dbeafe;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+
+.navbar-link-active {
+  background: linear-gradient(120deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1e3a8a;
+  font-weight: 700;
+  border-color: #93c5fd;
+}
+
+.navbar-link-icon {
+  font-size: 13px;
+}
+
+.navbar-logout-btn {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navbar-logout-btn:hover {
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
+.navbar-theme-btn {
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 9px 13px;
+  font-size: 14px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.navbar-theme-btn:hover {
+  background: #dbeafe;
+  border-color: #60a5fa;
+  color: #1e3a8a;
+  transform: translateY(-1px);
+}
+
+.navbar-menu-btn {
+  display: none;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  width: 38px;
+  height: 38px;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.navbar-mobile-menu {
+  display: none;
+}
+
+[data-theme="dark"] .navbar-root {
+  background: rgba(12, 20, 34, 0.84);
+  border-bottom-color: var(--border);
+  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.46);
+}
+
+[data-theme="dark"] .navbar-brand {
+  color: #dbeafe;
+}
+
+[data-theme="dark"] .navbar-badge {
+  background: linear-gradient(120deg, #1e3a8a, #0f172a);
+  color: #bfdbfe;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .navbar-link {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .navbar-link:hover {
+  background: #18253a;
+  border-color: #334155;
+  color: #dbeafe;
+}
+
+[data-theme="dark"] .navbar-link-active {
+  background: linear-gradient(120deg, #1d4ed8 0%, #0ea5e9 100%);
+  color: #f8fafc;
+  border-color: #3b82f6;
+}
+
+[data-theme="dark"] .navbar-theme-btn,
+[data-theme="dark"] .navbar-menu-btn {
+  background: #0f172a;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .navbar-theme-btn:hover,
+[data-theme="dark"] .navbar-menu-btn:hover {
+  background: #18253a;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .navbar-logout-btn {
+  background: #311516;
+  border-color: #7f1d1d;
+  color: #fecaca;
+}
+
+[data-theme="dark"] .navbar-logout-btn:hover {
+  background: #3f1d1f;
+}
+
+[data-theme="dark"] .navbar-mobile-menu {
+  background: rgba(12, 20, 34, 0.95);
+  border-top-color: var(--border);
+}
+
+[data-theme="dark"] .auth-box,
+[data-theme="dark"] .register-container .auth-card,
+[data-theme="dark"] .dashboard-shell,
+[data-theme="dark"] .parking-reservas-shell,
+[data-theme="dark"] .parking-config-shell,
+[data-theme="dark"] .user-reservas-shell {
+  background: linear-gradient(145deg, #0f172a 0%, #111d33 100%);
+  border-color: var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+[data-theme="dark"] .dashboard-panel,
+[data-theme="dark"] .dashboard-stat-card,
+[data-theme="dark"] .dashboard-reserva-card,
+[data-theme="dark"] .dashboard-info-list div,
+[data-theme="dark"] .parking-reservas-list-panel,
+[data-theme="dark"] .parking-reservas-stat-card,
+[data-theme="dark"] .parking-reserva-card,
+[data-theme="dark"] .parking-reserva-summary-item,
+[data-theme="dark"] .parking-reserva-grid p,
+[data-theme="dark"] .config-panel,
+[data-theme="dark"] .config-stat-card,
+[data-theme="dark"] .tarifa-card,
+[data-theme="dark"] .user-reserva-form,
+[data-theme="dark"] .user-reserva-item,
+[data-theme="dark"] .user-input-group,
+[data-theme="dark"] .user-vehiculo-form-panel {
+  background: var(--surface);
+  border-color: var(--elevated-border);
+}
+
+[data-theme="dark"] .dashboard-hero,
+[data-theme="dark"] .parking-reservas-hero {
+  background: linear-gradient(120deg, #1f2937 0%, #334155 56%, #475569 100%);
+}
+
+[data-theme="dark"] .dashboard-action-link {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .dashboard-action-link.secondary {
+  background: rgba(15, 23, 42, 0.4);
+  border-color: rgba(148, 163, 184, 0.5);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .parking-reserva-summary-item.is-highlight {
+  background: linear-gradient(135deg, #18273d 0%, #21314a 100%);
+  border-color: #334155;
+}
+
+[data-theme="dark"] .dashboard-mini-action,
+[data-theme="dark"] .parking-reservas-total,
+[data-theme="dark"] .user-btn-add.user-btn-add-ghost {
+  background: #17253a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .config-fields input,
+[data-theme="dark"] .tarifa-card input,
+[data-theme="dark"] .user-input-group input,
+[data-theme="dark"] .user-input-group select,
+[data-theme="dark"] .user-input-group textarea,
+[data-theme="dark"] .parking-reserva-date,
+[data-theme="dark"] .auth-box .input,
+[data-theme="dark"] .register-container .input-group input,
+[data-theme="dark"] .register-container .city-selector {
+  background: #0b1220;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .parking-reserva-grid strong,
+[data-theme="dark"] .parking-reserva-summary-item strong,
+[data-theme="dark"] .dashboard-info-list dd,
+[data-theme="dark"] .dashboard-stat-value,
+[data-theme="dark"] .dashboard-panel-head h2,
+[data-theme="dark"] .parking-reservas-list-head h2,
+[data-theme="dark"] .parking-reserva-head h3,
+[data-theme="dark"] .config-panel h2,
+[data-theme="dark"] .tarifa-card h3,
+[data-theme="dark"] .parking-config-header h1,
+[data-theme="dark"] .auth-box h1,
+[data-theme="dark"] .register-container .title,
+[data-theme="dark"] .user-reserva-head h3,
+[data-theme="dark"] .parking-reservas-stat-card strong,
+[data-theme="dark"] .config-stat-card strong,
+[data-theme="dark"] .user-reservas-title {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .parking-reserva-grid span,
+[data-theme="dark"] .parking-reserva-summary-item span,
+[data-theme="dark"] .parking-reserva-date,
+[data-theme="dark"] .dashboard-stat-label,
+[data-theme="dark"] .dashboard-reserva-row,
+[data-theme="dark"] .dashboard-empty-note,
+[data-theme="dark"] .parking-reservas-total,
+[data-theme="dark"] .parking-reserva-head p,
+[data-theme="dark"] .parking-reserva-note,
+[data-theme="dark"] .config-help-text,
+[data-theme="dark"] .auth-box p,
+[data-theme="dark"] .register-container .subtitle,
+[data-theme="dark"] .register-container .coords,
+[data-theme="dark"] .register-container .city-selector-group label,
+[data-theme="dark"] .user-reservas-subtitle,
+[data-theme="dark"] .user-reservas-empty,
+[data-theme="dark"] .user-reserva-item p {
+  color: #94a3b8;
+}
+
+.toast-container {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 9999;
+  display: grid;
+  gap: 10px;
+}
+
+.toast-item {
+  min-width: 230px;
+  max-width: 360px;
+  border-radius: var(--radius-sm);
+  padding: 11px 14px;
+  color: #fff;
+  font-size: 14px;
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  display: grid;
+  gap: 8px;
+}
+
+.toast-message {
+  line-height: 1.35;
+}
+
+.toast-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.toast-action-btn,
+.toast-close-btn {
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toast-action-btn:hover,
+.toast-close-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.toast-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-success {
+  background: #15803d;
+}
+
+.toast-error {
+  background: #b91c1c;
+}
+
+.toast-warning {
+  background: #b45309;
+}
+
+@media (max-width: 900px) {
+  .main-content {
+    padding: 14px;
+  }
+
+  .navbar-menu-btn {
+    display: inline-flex;
+  }
+
+  .navbar-desktop {
+    display: none;
+  }
+
+  .navbar-mobile-menu {
+    display: grid;
+    gap: 6px;
+    border-top: 1px solid var(--border);
+    background: rgba(239, 246, 255, 0.96);
+    padding: 10px 14px 14px;
+  }
+
+  .navbar-link {
+    width: 100%;
+    justify-content: flex-start;
+    border-radius: 12px;
+  }
+
+  .navbar-theme-mobile {
+    width: 100%;
+    justify-content: center;
+    border-radius: 12px;
+  }
+
+  .navbar-logout-mobile {
+    width: 100%;
+    justify-content: center;
+    margin-top: 4px;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  .auth-box {
+    padding: 24px 18px;
+  }
+
+  .navbar-park-name {
+    display: none;
+  }
+
+  .toast-container {
+    right: 8px;
+    left: 8px;
+  }
+
+  .toast-item {
+    min-width: 0;
+    max-width: 100%;
+  }
+}

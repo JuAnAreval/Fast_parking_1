@@ -1,0 +1,54 @@
+.auth-box .input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.auth-box .icon {
+  position: absolute;
+  left: 14px;
+  color: #94a3b8;
+  font-size: 1.02rem;
+  z-index: 2;
+}
+
+.auth-box .input-group .input {
+  padding-left: 40px;
+}
+
+.auth-box .input-group .input[type="password"],
+.auth-box .input-group .input[type="text"] {
+  padding-right: 42px;
+}
+
+.auth-box .toggle-pass {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 1rem;
+  z-index: 2;
+}
+
+.auth-box .toggle-pass:hover {
+  color: #1f2937;
+}
+
+.auth-box .register-text {
+  margin-top: 18px;
+  color: #64748b;
+  font-size: 0.94rem;
+}
+
+.auth-box .link {
+  color: #1f2937;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.auth-box .link:hover {
+  text-decoration: underline;
+}
