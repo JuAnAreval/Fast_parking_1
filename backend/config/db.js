@@ -11,7 +11,17 @@ function isTruthy(value) {
     );
 }
 
-function buildConnectionConfig() {
+function toPositiveInt(value, fallback) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function toNonNegativeInt(value, fallback) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function buildPoolConfig() {
     const databaseUrl =
         getEnv("DATABASE_URL") ||
         getEnv("MYSQL_URL") ||
@@ -25,20 +35,37 @@ function buildConnectionConfig() {
     const rejectUnauthorized = isTruthy(getEnv("DB_SSL_REJECT_UNAUTHORIZED"));
     const ssl = sslEnabled ? { rejectUnauthorized } : undefined;
     const dbTimezone = getEnv("DB_TIMEZONE", "-05:00");
+    const baseConfig = {
+        ssl,
+        timezone: dbTimezone,
+        waitForConnections: true,
+        connectionLimit: toPositiveInt(
+            getEnv("DB_CONNECTION_LIMIT", getEnv("MYSQL_CONNECTION_LIMIT", "10")),
+            10
+        ),
+        queueLimit: toNonNegativeInt(
+            getEnv("DB_QUEUE_LIMIT", getEnv("MYSQL_QUEUE_LIMIT", "0")),
+            0
+        ),
+        enableKeepAlive: !isTruthy(getEnv("DB_DISABLE_KEEP_ALIVE")),
+        keepAliveInitialDelay: toNonNegativeInt(
+            getEnv("DB_KEEP_ALIVE_INITIAL_DELAY_MS", "0"),
+            0
+        ),
+        connectTimeout: toPositiveInt(getEnv("DB_CONNECT_TIMEOUT_MS", "10000"), 10000),
+    };
 
     if (databaseUrl) {
         return {
-            uri: databaseUrl,
             dbTimezone,
             config: {
                 uri: databaseUrl,
-                ssl,
+                ...baseConfig,
             },
         };
     }
 
     return {
-        uri: null,
         dbTimezone,
         config: {
             host: getEnv("DB_HOST", getEnv("MYSQLHOST")),
@@ -46,45 +73,52 @@ function buildConnectionConfig() {
             user: getEnv("DB_USER", getEnv("MYSQLUSER")),
             password: getEnv("DB_PASSWORD", getEnv("MYSQLPASSWORD")),
             database: getEnv("DB_NAME", getEnv("MYSQLDATABASE")),
-            ssl,
-            timezone: dbTimezone,
+            ...baseConfig,
         },
     };
 }
 
-let connection;
+function attachPoolListeners(pool, dbTimezone) {
+    pool.on("connection", (connection) => {
+        connection.query("SET time_zone = ?", [dbTimezone], (tzErr) => {
+            if (tzErr) {
+                console.warn(
+                    `Conectado a MySQL, pero no se pudo fijar DB_TIMEZONE=${dbTimezone}:`,
+                    tzErr.message || tzErr
+                );
+            }
+        });
+
+        connection.on("error", (err) => {
+            console.error("Error en conexion MySQL del pool:", err.message || err);
+        });
+    });
+}
+
+let pool;
 
 try {
-    const { uri, config, dbTimezone } = buildConnectionConfig();
-    connection = uri ? mysql.createConnection(uri) : mysql.createConnection(config);
+    const { config, dbTimezone } = buildPoolConfig();
+    pool = mysql.createPool(config);
+    attachPoolListeners(pool, dbTimezone);
 
-    connection.connect((err) => {
+    pool.getConnection((err, connection) => {
         if (err) {
             console.error("Error al conectar a la base de datos:", err.message || err);
             return;
         }
-        console.log("Conectado a MySQL");
-    });
 
-    // Queue timezone setup immediately so it runs before normal app queries.
-    connection.query("SET time_zone = ?", [dbTimezone], (tzErr) => {
-        if (tzErr) {
-            console.warn(
-                `Conectado a MySQL, pero no se pudo fijar DB_TIMEZONE=${dbTimezone}:`,
-                tzErr.message || tzErr
-            );
-        } else {
-            console.log(`Sesion MySQL configurada con DB_TIMEZONE=${dbTimezone}`);
-        }
+        console.log("Pool MySQL listo");
+        connection.release();
     });
 } catch (err) {
-    console.error("Exception creating DB connection:", err.message || err);
-    connection = null;
+    console.error("Exception creating DB pool:", err.message || err);
+    pool = null;
 }
 
-if (!connection) {
+if (!pool) {
     console.warn(
-        "Database connection not available. Exports a shimbed query() that returns an error."
+        "Database pool not available. Exports a shimmed query() that returns an error."
     );
 
     const dbUnavailableError = () =>
@@ -108,19 +142,13 @@ if (!connection) {
             }
             return callbackOrReject(cb);
         },
-        beginTransaction: function (cb) {
+        getConnection: function (cb) {
             return callbackOrReject(cb);
-        },
-        commit: function (cb) {
-            return callbackOrReject(cb);
-        },
-        rollback: function (cb) {
-            if (typeof cb === "function") cb();
         },
         end: function (cb) {
             if (typeof cb === "function") cb();
         },
     };
 } else {
-    module.exports = connection;
+    module.exports = pool;
 }

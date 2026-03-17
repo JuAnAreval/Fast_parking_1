@@ -196,43 +196,64 @@ exports.updateTarifas = (req, res) => {
             return res.status(404).json({ mensaje: 'Parqueadero no encontrado', message: 'Parking not found' });
         }
 
-        // Comenzamos una transacciÃ³n para actualizar todas las tarifas
-        db.beginTransaction(err => {
-            if (err) {
-                console.error('Error al iniciar transacciÃ³n:', err);
+        // Usamos una conexiÃ³n dedicada del pool para no mezclar esta transacciÃ³n con otras peticiones.
+        db.getConnection((connErr, connection) => {
+            if (connErr) {
+                console.error('Error al obtener conexiÃ³n para transacciÃ³n:', connErr);
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
 
-            // Primero eliminamos las tarifas existentes
-            db.query('DELETE FROM tarifas WHERE parqueadero_id = ?', [id], (err) => {
+            let released = false;
+            const releaseConnection = () => {
+                if (!released) {
+                    released = true;
+                    connection.release();
+                }
+            };
+
+            connection.beginTransaction(err => {
                 if (err) {
-                    return db.rollback(() => {
-                        console.error('Error al eliminar tarifas:', err);
-                        res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
-                    });
+                    releaseConnection();
+                    console.error('Error al iniciar transacciÃ³n:', err);
+                    return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
                 }
 
-                // Preparamos la consulta para insertar mÃºltiples tarifas
-                const values = normalized.map(t => [id, t.tipo_vehiculo, t.tarifa_primera_hora, t.tarifa_hora_adicional]);
-                const sql = 'INSERT INTO tarifas (parqueadero_id, tipo_vehiculo, tarifa_primera_hora, tarifa_hora_adicional) VALUES ?';
-
-                db.query(sql, [values], (err) => {
+                // Primero eliminamos las tarifas existentes
+                connection.query('DELETE FROM tarifas WHERE parqueadero_id = ?', [id], (err) => {
                     if (err) {
-                        return db.rollback(() => {
-                            console.error('Error al insertar tarifas:', err);
+                        return connection.rollback(() => {
+                            releaseConnection();
+                            console.error('Error al eliminar tarifas:', err);
                             res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
                         });
                     }
 
-                    // Confirmamos la transacciÃ³n
-                    db.commit(err => {
+                    // Preparamos la consulta para insertar mÃºltiples tarifas
+                    const values = normalized.map(t => [id, t.tipo_vehiculo, t.tarifa_primera_hora, t.tarifa_hora_adicional]);
+                    const sql = 'INSERT INTO tarifas (parqueadero_id, tipo_vehiculo, tarifa_primera_hora, tarifa_hora_adicional) VALUES ?';
+
+                    connection.query(sql, [values], (err) => {
                         if (err) {
-                            return db.rollback(() => {
-                                console.error('Error al confirmar transacciÃ³n:', err);
+                            return connection.rollback(() => {
+                                releaseConnection();
+                                console.error('Error al insertar tarifas:', err);
                                 res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
                             });
                         }
-                        res.json({ mensaje: 'Tarifas actualizadas con Ã©xito', message: 'Tariffs updated successfully' });
+
+                        // Confirmamos la transacciÃ³n
+                        connection.commit(err => {
+                            if (err) {
+                                return connection.rollback(() => {
+                                    releaseConnection();
+                                    console.error('Error al confirmar transacciÃ³n:', err);
+                                    res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+                                });
+                            }
+
+                            releaseConnection();
+                            res.json({ mensaje: 'Tarifas actualizadas con Ã©xito', message: 'Tariffs updated successfully' });
+                        });
                     });
                 });
             });
