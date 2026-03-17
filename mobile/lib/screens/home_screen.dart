@@ -265,8 +265,9 @@ class _HomeScreenState extends State<HomeScreen>
       position: _cardOffsetAnimation,
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(20, 0, 20, 12),
           child: ParkingDetailCard(
             parqueadero: _controller.selectedParqueadero!,
             tarifas: _controller.tarifas,

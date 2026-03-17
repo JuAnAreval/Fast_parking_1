@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/api_url.dart';
 
 /// Decodifica JSON en un isolate para no bloquear el hilo principal (evita "Skipped frames").
 dynamic _decodeJsonInIsolate(String body) {
@@ -13,67 +14,28 @@ dynamic _decodeJsonInIsolate(String body) {
 }
 
 class ApiService {
-  static const String _apiScheme = String.fromEnvironment(
-    'API_SCHEME',
-    defaultValue: 'http',
-  );
-  static const String _apiHost = String.fromEnvironment(
-    'API_HOST',
-    defaultValue: '127.0.0.1',
-  );
-  static const String _apiHostAlt = String.fromEnvironment(
-    'API_HOST_ALT',
-    defaultValue: '',
-  );
-  static const int _apiPort = int.fromEnvironment(
-    'API_PORT',
-    defaultValue: 3000,
-  );
-
-  static List<String> _buildHostCandidates() {
-    final ordered = <String>[];
-
-    if (kIsWeb) {
-      ordered.addAll(['localhost', _apiHost, _apiHostAlt]);
-    } else if (defaultTargetPlatform == TargetPlatform.android) {
-      ordered.addAll([
-        '10.0.2.2',
-        '10.0.3.2',
-        _apiHost,
-        _apiHostAlt,
-        '192.168.56.1',
-        '127.0.0.1',
-        'localhost',
-      ]);
-    } else {
-      ordered.addAll(['localhost', _apiHost, _apiHostAlt]);
-    }
-
-    final seen = <String>{};
-    final uniqueHosts = <String>[];
-    for (final host in ordered) {
-      final trimmed = host.trim();
-      if (trimmed.isEmpty) continue;
-      if (seen.add(trimmed)) {
-        uniqueHosts.add(trimmed);
-      }
-    }
-
-    return uniqueHosts;
-  }
-
-  static List<String> _buildBaseUrls(String endpointGroup) {
-    return _buildHostCandidates()
-        .map((host) => '$_apiScheme://$host:$_apiPort/api/$endpointGroup')
-        .toList(growable: false);
-  }
-
-  static final List<String> _baseUrls = _buildBaseUrls('auth');
-  static final List<String> _parqueaderoBaseUrls = _buildBaseUrls(
+  static final Duration _authTimeout =
+      ApiUrl.environment == ApiEnvironment.production
+      ? const Duration(seconds: 6)
+      : const Duration(seconds: 2);
+  static final Duration _requestTimeout =
+      ApiUrl.environment == ApiEnvironment.production
+      ? const Duration(seconds: 6)
+      : const Duration(seconds: 2);
+  static final Duration _mutationTimeout =
+      ApiUrl.environment == ApiEnvironment.production
+      ? const Duration(seconds: 10)
+      : const Duration(seconds: 4);
+  static final List<String> _baseUrls = ApiUrl.buildBaseUrls('auth');
+  static final List<String> _parqueaderoBaseUrls = ApiUrl.buildBaseUrls(
     'parqueaderos',
   );
-  static final List<String> _reservasBaseUrls = _buildBaseUrls('reservas');
-  static final List<String> _vehiculosBaseUrls = _buildBaseUrls('vehiculos');
+  static final List<String> _reservasBaseUrls = ApiUrl.buildBaseUrls(
+    'reservas',
+  );
+  static final List<String> _vehiculosBaseUrls = ApiUrl.buildBaseUrls(
+    'vehiculos',
+  );
   static const String _serverUnavailableMessage =
       'No se pudo confirmar la respuesta del servidor. Verifica tu conexion e intenta nuevamente.';
 
@@ -119,9 +81,7 @@ class ApiService {
               headers: {"Content-Type": "application/json"},
               body: jsonEncode(bodyPayload),
             )
-            .timeout(
-              const Duration(seconds: 1),
-            ); // Timeout reducido para más rapidez
+            .timeout(_authTimeout);
 
         final parsed = _parseBody(response.body);
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -177,7 +137,7 @@ class ApiService {
               Uri.parse('$base/me'),
               headers: {'Authorization': 'Bearer $token'},
             )
-            .timeout(const Duration(seconds: 2));
+            .timeout(_requestTimeout);
 
         final parsed = _parseBody(response.body);
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -222,7 +182,7 @@ class ApiService {
               },
               body: jsonEncode(payload),
             )
-            .timeout(const Duration(seconds: 2));
+            .timeout(_mutationTimeout);
 
         final parsed = _parseBody(response.body);
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -269,7 +229,7 @@ class ApiService {
               },
               body: jsonEncode(payload),
             )
-            .timeout(const Duration(seconds: 2));
+            .timeout(_mutationTimeout);
 
         final parsed = _parseBody(response.body);
         if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -291,8 +251,6 @@ class ApiService {
   }
 
   // Métodos para parqueaderos (peticiones en paralelo + JSON en isolate para no bloquear UI)
-  static const Duration _requestTimeout = Duration(seconds: 2);
-  static const Duration _mutationTimeout = Duration(seconds: 4);
   static String? _workingAuthBaseUrl;
   static String? _workingParqueaderoBaseUrl;
   static String? _workingReservasBaseUrl;
@@ -680,7 +638,7 @@ class ApiService {
               Uri.parse('$base/$parqueaderoId/tarifas'),
               headers: {'Authorization': 'Bearer $token'},
             )
-            .timeout(const Duration(seconds: 1)); // Timeout reducido
+            .timeout(_requestTimeout);
 
         if (response.statusCode == 200) {
           final data = await compute(_decodeJsonInIsolate, response.body);

@@ -267,8 +267,9 @@ class _HomeMapScreenState extends State<HomeMapScreen>
       position: _cardOffsetAnimation,
       child: Align(
         alignment: Alignment.bottomCenter,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
+        child: SafeArea(
+          top: false,
+          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(20),
