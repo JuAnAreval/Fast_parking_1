@@ -412,7 +412,7 @@ export default function ParqueaderoDashboard() {
                   </p>
                   {reserva.estado === "completada" && (
                     <p className="dashboard-reserva-row">
-                      Valor total: {toCurrency(reserva.valor_total)}
+                      Valor total: {toCurrency(reserva.valor_estimado)}
                     </p>
                   )}
                 </article>

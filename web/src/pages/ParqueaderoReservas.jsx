@@ -36,7 +36,7 @@ const getReservationSummaryItems = (reserva) => {
       items.push({ label: "Hora de salida", value: formatTime(reserva.hora_fin) });
       items.push({
         label: "Valor total",
-        value: toCurrency(reserva.valor_total),
+        value: toCurrency(reserva.valor_estimado),
         highlight: true,
       });
     }
