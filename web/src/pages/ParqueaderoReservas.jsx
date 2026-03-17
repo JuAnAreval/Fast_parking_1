@@ -34,6 +34,11 @@ const getReservationSummaryItems = (reserva) => {
 
     if (reserva.estado === "completada") {
       items.push({ label: "Hora de salida", value: formatTime(reserva.hora_fin) });
+      items.push({
+        label: "Valor total",
+        value: toCurrency(reserva.valor_total),
+        highlight: true,
+      });
     }
 
     return items;
@@ -42,12 +47,6 @@ const getReservationSummaryItems = (reserva) => {
   items.push({
     label: "Horario reservado",
     value: `${formatTime(reserva.hora_inicio)} - ${formatTime(reserva.hora_fin)}`,
-  });
-
-  items.push({
-    label: "Valor estimado",
-    value: toCurrency(reserva.valor_estimado),
-    highlight: true,
   });
 
   return items;

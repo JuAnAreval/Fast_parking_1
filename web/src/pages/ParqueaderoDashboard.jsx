@@ -410,6 +410,11 @@ export default function ParqueaderoDashboard() {
                   <p className="dashboard-reserva-row">
                     {getTimelineSummary(reserva)}
                   </p>
+                  {reserva.estado === "completada" && (
+                    <p className="dashboard-reserva-row">
+                      Valor total: {toCurrency(reserva.valor_total)}
+                    </p>
+                  )}
                 </article>
               ))}
             </div>
