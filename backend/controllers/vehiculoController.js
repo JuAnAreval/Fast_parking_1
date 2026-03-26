@@ -1,7 +1,4 @@
 const db = require('../config/db');
-const jwt = require('jsonwebtoken');
-
-const SECRET_KEY = process.env.JWT_SECRET || 'secreto123';
 const TIPOS_VEHICULO = new Set(['carro', 'moto', 'bicicleta', 'camion', 'ambulancia']);
 
 const toPositiveInt = (value) => {
@@ -20,24 +17,8 @@ const normalizePlaca = (value) =>
 
 const normalizeColor = (value) => String(value || '').trim();
 
-const getUserIdFromAuthHeader = (req) => {
-    const authHeader = req.headers?.authorization || req.headers?.Authorization;
-    if (!authHeader || typeof authHeader !== 'string') return null;
-    if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
-
-    const token = authHeader.slice(7).trim();
-    if (!token) return null;
-
-    try {
-        const decoded = jwt.verify(token, SECRET_KEY);
-        return toPositiveInt(decoded?.id);
-    } catch (_) {
-        return null;
-    }
-};
-
 exports.getVehiculosMios = (req, res) => {
-    const usuarioId = getUserIdFromAuthHeader(req);
+    const usuarioId = toPositiveInt(req.auth?.actorId);
     if (!usuarioId) {
         return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
     }
@@ -65,7 +46,7 @@ exports.getVehiculosMios = (req, res) => {
 };
 
 exports.crearVehiculo = (req, res) => {
-    const usuarioId = toPositiveInt(req.body?.usuario_id) || getUserIdFromAuthHeader(req);
+    const usuarioId = toPositiveInt(req.auth?.actorId);
     if (!usuarioId) {
         return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
     }
@@ -115,7 +96,7 @@ exports.crearVehiculo = (req, res) => {
 };
 
 exports.actualizarVehiculo = (req, res) => {
-    const usuarioId = getUserIdFromAuthHeader(req);
+    const usuarioId = toPositiveInt(req.auth?.actorId);
     const vehiculoId = toPositiveInt(req.params.id);
     if (!usuarioId) {
         return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
@@ -170,7 +151,7 @@ exports.actualizarVehiculo = (req, res) => {
 };
 
 exports.eliminarVehiculo = (req, res) => {
-    const usuarioId = getUserIdFromAuthHeader(req);
+    const usuarioId = toPositiveInt(req.auth?.actorId);
     const vehiculoId = toPositiveInt(req.params.id);
     if (!usuarioId) {
         return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });

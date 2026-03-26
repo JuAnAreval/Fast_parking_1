@@ -14,6 +14,7 @@ dynamic _decodeJsonInIsolate(String body) {
 }
 
 class ApiService {
+  static VoidCallback? onSessionExpired;
   static final Duration _authTimeout =
       ApiUrl.environment == ApiEnvironment.production
       ? const Duration(seconds: 6)
@@ -38,6 +39,20 @@ class ApiService {
   );
   static const String _serverUnavailableMessage =
       'No se pudo confirmar la respuesta del servidor. Verifica tu conexion e intenta nuevamente.';
+  static const String _sessionExpiredMessage =
+      'Tu sesion expiro. Ingresa nuevamente.';
+  static const List<String> _sessionFailurePhrases = <String>[
+    'unauthorized',
+    'no autorizado',
+    'usuario no autenticado',
+    'token required',
+    'token requerido',
+    'invalid token',
+    'token invalido',
+    'jwt expired',
+    'token expired',
+  ];
+  static bool _sessionExpiredHandled = false;
 
   // Helper para procesar el cuerpo de la respuesta JSON de forma segura
   static Map<String, dynamic> _parseBody(String body) {
@@ -62,6 +77,101 @@ class ApiService {
 
   static bool _isFallbackStatus(int statusCode) =>
       statusCode == 404 || statusCode == 405;
+
+  static bool _isSessionFailureMessage(String message) {
+    final normalized = message.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    for (final phrase in _sessionFailurePhrases) {
+      if (normalized.contains(phrase)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  static Map<String, dynamic> _unauthenticatedResponse() {
+    if (_sessionExpiredHandled) {
+      return {
+        'success': false,
+        'message': _sessionExpiredMessage,
+        'sessionExpired': true,
+      };
+    }
+
+    return {'success': false, 'message': 'Usuario no autenticado'};
+  }
+
+  static Future<void> _clearStoredSession() async {
+    final prefs = await _prefsFuture;
+    await prefs.remove('auth_token');
+    await prefs.remove('user_id');
+  }
+
+  static Future<Map<String, dynamic>> _handleSessionExpired() async {
+    if (!_sessionExpiredHandled) {
+      _sessionExpiredHandled = true;
+      await _clearStoredSession();
+      onSessionExpired?.call();
+    }
+
+    return _unauthenticatedResponse();
+  }
+
+  static Future<Map<String, dynamic>> _handleAuthenticatedErrorResponse(
+    http.Response response,
+  ) async {
+    final parsed = _parseBody(response.body);
+    final message = _responseMessage(parsed);
+
+    if (_isSessionFailureMessage(message)) {
+      return _handleSessionExpired();
+    }
+
+    return {'success': false, 'message': message};
+  }
+
+  static Map<String, dynamic>? _decodeJwtPayload(String token) {
+    final parts = token.split('.');
+    if (parts.length != 3) {
+      return null;
+    }
+
+    try {
+      final normalized = base64Url.normalize(parts[1]);
+      final decoded = utf8.decode(base64Url.decode(normalized));
+      final payload = jsonDecode(decoded);
+      if (payload is Map) {
+        return Map<String, dynamic>.from(payload);
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  static bool _isStoredTokenExpired(String token) {
+    final payload = _decodeJwtPayload(token);
+    final expValue = payload?['exp'];
+    final exp = switch (expValue) {
+      int value => value,
+      String value => int.tryParse(value),
+      _ => null,
+    };
+
+    if (exp == null || exp <= 0) {
+      return false;
+    }
+
+    final expiresAt = DateTime.fromMillisecondsSinceEpoch(
+      exp * 1000,
+      isUtc: true,
+    );
+
+    return !DateTime.now().toUtc().isBefore(expiresAt);
+  }
 
   static Future<Map<String, dynamic>> _postWithFallback(
     String endpoint,
@@ -126,7 +236,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getProfile() async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(_baseUrls, _workingAuthBaseUrl);
@@ -151,7 +261,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -165,7 +275,7 @@ class ApiService {
   }) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final payload = {'nombre': nombre, 'email': email, 'telefono': telefono};
@@ -196,7 +306,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -209,7 +319,7 @@ class ApiService {
   }) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final payload = {
@@ -243,7 +353,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -288,6 +398,10 @@ class ApiService {
         final data = await compute(_decodeJsonInIsolate, response.body);
         if (data != null) return {'success': true, 'data': data};
       }
+      if (_isFallbackStatus(response.statusCode)) {
+        return null;
+      }
+      return _handleAuthenticatedErrorResponse(response);
     } catch (_) {}
     return null;
   }
@@ -295,7 +409,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getParqueaderos() async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -305,8 +419,11 @@ class ApiService {
 
     for (final base in candidateBases) {
       final result = await _getParqueaderosOne(base, token);
-      if (result != null) {
+      if (result != null && result['success'] == true) {
         _workingParqueaderoBaseUrl = base;
+        return result;
+      }
+      if (result != null && result['success'] == false) {
         return result;
       }
     }
@@ -330,6 +447,10 @@ class ApiService {
         final data = await compute(_decodeJsonInIsolate, response.body);
         if (data != null) return {'success': true, 'data': data};
       }
+      if (_isFallbackStatus(response.statusCode)) {
+        return null;
+      }
+      return _handleAuthenticatedErrorResponse(response);
     } catch (_) {}
     return null;
   }
@@ -337,7 +458,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getTarifas(int parqueaderoId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -347,8 +468,11 @@ class ApiService {
 
     for (final base in candidateBases) {
       final result = await _getTarifasOne(base, token, parqueaderoId);
-      if (result != null) {
+      if (result != null && result['success'] == true) {
         _workingParqueaderoBaseUrl = base;
+        return result;
+      }
+      if (result != null && result['success'] == false) {
         return result;
       }
     }
@@ -362,11 +486,11 @@ class ApiService {
   ) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
     final userId = await getUserId();
     if (userId == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final payload = <String, dynamic>{
@@ -406,10 +530,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {
-          'success': false,
-          'message': parsed['message'] ?? 'Error desconocido',
-        };
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -431,6 +552,10 @@ class ApiService {
         final data = await compute(_decodeJsonInIsolate, response.body);
         if (data != null) return {'success': true, 'data': data};
       }
+      if (_isFallbackStatus(response.statusCode)) {
+        return null;
+      }
+      return _handleAuthenticatedErrorResponse(response);
     } catch (_) {}
     return null;
   }
@@ -438,7 +563,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getReservasUsuario(int usuarioId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -448,8 +573,11 @@ class ApiService {
 
     for (final base in candidateBases) {
       final result = await _getReservasUsuarioOne(base, token, usuarioId);
-      if (result != null) {
+      if (result != null && result['success'] == true) {
         _workingReservasBaseUrl = base;
+        return result;
+      }
+      if (result != null && result['success'] == false) {
         return result;
       }
     }
@@ -460,7 +588,7 @@ class ApiService {
   static Future<Map<String, dynamic>> autorizarIngreso(int reservaId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -488,10 +616,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {
-          'success': false,
-          'message': parsed['message'] ?? 'Error desconocido',
-        };
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -500,7 +625,7 @@ class ApiService {
   static Future<Map<String, dynamic>> cancelarReserva(int reservaId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -528,10 +653,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {
-          'success': false,
-          'message': parsed['message'] ?? 'Error desconocido',
-        };
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -540,7 +662,7 @@ class ApiService {
   static Future<Map<String, dynamic>> completarReserva(int reservaId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -568,10 +690,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {
-          'success': false,
-          'message': parsed['message'] ?? 'Error desconocido',
-        };
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -580,7 +699,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getTarifa(int reservaId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -607,11 +726,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        final parsed = _parseBody(response.body);
-        return {
-          'success': false,
-          'message': parsed['message'] ?? 'Error desconocido',
-        };
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -623,7 +738,7 @@ class ApiService {
   ) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = _candidateBases(
@@ -651,8 +766,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        final parsed = _parseBody(response.body);
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
     return {'success': false, 'message': _serverUnavailableMessage};
@@ -679,8 +793,7 @@ class ApiService {
       if (_isFallbackStatus(response.statusCode)) {
         return null;
       }
-      final parsed = _parseBody(response.body);
-      return {'success': false, 'message': _responseMessage(parsed)};
+      return _handleAuthenticatedErrorResponse(response);
     } catch (_) {}
     return null;
   }
@@ -688,7 +801,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getVehiculosUsuario() async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -715,7 +828,7 @@ class ApiService {
   ) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -747,7 +860,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -760,7 +873,7 @@ class ApiService {
   ) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -792,7 +905,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -802,7 +915,7 @@ class ApiService {
   static Future<Map<String, dynamic>> eliminarVehiculo(int vehiculoId) async {
     final token = await _getToken();
     if (token == null) {
-      return {'success': false, 'message': 'Usuario no autenticado'};
+      return _unauthenticatedResponse();
     }
 
     final candidateBases = <String>[
@@ -830,7 +943,7 @@ class ApiService {
         if (_isFallbackStatus(response.statusCode)) {
           continue;
         }
-        return {'success': false, 'message': _responseMessage(parsed)};
+        return _handleAuthenticatedErrorResponse(response);
       } catch (_) {}
     }
 
@@ -839,23 +952,72 @@ class ApiService {
 
   static Future<void> saveToken(String token) async {
     final prefs = await _prefsFuture;
+    _sessionExpiredHandled = false;
     await prefs.setString('auth_token', token);
   }
 
+  static Future<bool> restoreSession() async {
+    final token = await _getToken();
+    if (token == null || token.trim().isEmpty) {
+      return false;
+    }
+
+    final savedUserId = await getUserId();
+    if (savedUserId != null && savedUserId > 0) {
+      return true;
+    }
+
+    final profile = await getProfile();
+    if (profile['success'] == true) {
+      final data = profile['data'];
+      final userId = switch (data) {
+        {'id': final int id} => id,
+        {'id': final String id} => int.tryParse(id),
+        _ => null,
+      };
+
+      if (userId != null && userId > 0) {
+        await saveUserId(userId);
+      }
+      return true;
+    }
+
+    final message = (profile['message'] ?? '').toString().toLowerCase();
+    final shouldInvalidateSession =
+        profile['sessionExpired'] == true || _isSessionFailureMessage(message);
+
+    if (shouldInvalidateSession) {
+      if (profile['sessionExpired'] != true) {
+        await logout();
+      }
+      return false;
+    }
+
+    return true;
+  }
+
   static Future<String?> getToken() async {
-    final prefs = await _prefsFuture;
-    return prefs.getString('auth_token');
+    return _getToken();
   }
 
   static Future<String?> _getToken() async {
     final prefs = await _prefsFuture;
-    return prefs.getString('auth_token');
+    final token = prefs.getString('auth_token')?.trim();
+    if (token == null || token.isEmpty) {
+      return null;
+    }
+
+    if (_isStoredTokenExpired(token)) {
+      await _handleSessionExpired();
+      return null;
+    }
+
+    return token;
   }
 
   static Future<void> logout() async {
-    final prefs = await _prefsFuture;
-    await prefs.remove('auth_token');
-    await prefs.remove('user_id');
+    _sessionExpiredHandled = false;
+    await _clearStoredSession();
   }
 
   // Opcional: almacenar y obtener user id (guardarlo tras el login si la app lo hace)

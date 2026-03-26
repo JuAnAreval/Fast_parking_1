@@ -4,11 +4,31 @@ import 'screens/home_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reservation_screen.dart';
+import 'screens/session_bootstrap_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
 
+final GlobalKey<NavigatorState> appNavigatorKey = GlobalKey<NavigatorState>();
+final GlobalKey<ScaffoldMessengerState> appScaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ApiService.onSessionExpired = () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+      appScaffoldMessengerKey.currentState?.showSnackBar(
+        const SnackBar(
+          content: Text('Tu sesion expiro. Ingresa nuevamente.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      appNavigatorKey.currentState?.pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    });
+  };
   runApp(const ParqueaderosApp());
 }
 
@@ -26,9 +46,11 @@ class ParqueaderosApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      initialRoute: '/login',
+      initialRoute: '/bootstrap',
       title: 'Parqueaderos App',
       debugShowCheckedModeBanner: false,
+      navigatorKey: appNavigatorKey,
+      scaffoldMessengerKey: appScaffoldMessengerKey,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
@@ -136,6 +158,7 @@ class ParqueaderosApp extends StatelessWidget {
         ),
       ),
       routes: {
+        '/bootstrap': (context) => const SessionBootstrapScreen(),
         '/login': (context) => LoginScreen(
           onLoginSuccess: () {
             Navigator.pushNamedAndRemoveUntil(

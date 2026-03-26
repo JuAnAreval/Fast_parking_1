@@ -1,7 +1,5 @@
 ﻿const db = require('../config/db');
-const jwt = require('jsonwebtoken');
-
-const SECRET_KEY = process.env.JWT_SECRET || 'secreto123';
+const { ACTOR_TYPES, verifyAccessToken } = require('../middlewares/auth');
 const RESERVA_STREAM_KEEPALIVE_MS = 25000;
 const reservaStreamClients = new Map();
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bogota';
@@ -73,22 +71,6 @@ const getNowInAppTimezone = (minutesToAdd = 0) => {
     };
 };
 
-const getUserIdFromAuthHeader = (req) => {
-    const authHeader = req.headers?.authorization || req.headers?.Authorization;
-    if (!authHeader || typeof authHeader !== 'string') return null;
-    if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
-
-    const token = authHeader.slice(7).trim();
-    if (!token) return null;
-
-    try {
-        const decoded = jwt.verify(token, SECRET_KEY);
-        return toPositiveInt(decoded?.id);
-    } catch (_) {
-        return null;
-    }
-};
-
 const calcularValorEstimadoPorMinutos = (minutos, tarifaPrimeraHora, tarifaHoraAdicional) => {
     const minutosNumericos = Number(minutos || 0);
     const primeraHora = toNonNegativeInt(tarifaPrimeraHora);
@@ -152,6 +134,21 @@ const getVehiculoUsuario = (usuarioId, vehiculoId, callback) => {
             return callback(null, results[0]);
         },
     );
+};
+
+const getReservaOwnerContext = (req) => {
+    const actorId = toPositiveInt(req.auth?.actorId);
+    if (!actorId) return null;
+
+    if (req.auth?.actorType === ACTOR_TYPES.USUARIO) {
+        return { actorId, ownerColumn: 'usuario_id' };
+    }
+
+    if (req.auth?.actorType === ACTOR_TYPES.PARQUEADERO) {
+        return { actorId, ownerColumn: 'parqueadero_id' };
+    }
+
+    return null;
 };
 
 const reserveParkingSpot = (parqueaderoId, callback) => {
@@ -228,15 +225,15 @@ exports.streamReservasParqueadero = (req, res) => {
         return res.status(401).json({ mensaje: 'Token requerido', message: 'Token required' });
     }
 
-    let decoded;
+    let auth;
     try {
-        decoded = jwt.verify(token, SECRET_KEY);
+        auth = verifyAccessToken(token);
     } catch (_) {
         return res.status(401).json({ mensaje: 'Token invÃ¡lido', message: 'Invalid token' });
     }
 
-    const tokenParqueaderoId = toPositiveInt(decoded?.id);
-    if (!tokenParqueaderoId || tokenParqueaderoId !== parqueaderoId) {
+    const tokenParqueaderoId = toPositiveInt(auth?.actorId);
+    if (!tokenParqueaderoId || auth?.actorType !== ACTOR_TYPES.PARQUEADERO || tokenParqueaderoId !== parqueaderoId) {
         return res.status(403).json({ mensaje: 'No autorizado para este parqueadero', message: 'Not authorized for this parking' });
     }
 
@@ -334,7 +331,7 @@ exports.crearReserva = (req, res) => {
         observaciones,
     } = req.body;
 
-    usuario_id = toPositiveInt(usuario_id) || getUserIdFromAuthHeader(req);
+    usuario_id = toPositiveInt(req.auth?.actorId);
     parqueadero_id = toPositiveInt(parqueadero_id);
     vehiculo_id = toPositiveInt(vehiculo_id);
 
@@ -668,45 +665,65 @@ exports.crearReserva = (req, res) => {
 // Cancelar reserva (pendiente o activa)
 exports.cancelarReserva = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
     }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
+    }
 
     db.query(
-        'UPDATE reservas SET estado = "cancelada" WHERE id = ? AND estado IN ("pendiente", "activa")',
-        [id],
-        (err, result) => {
-            if (err) {
-                console.error('Error al cancelar reserva:', err);
+        `SELECT parqueadero_id
+         FROM reservas
+         WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado IN ("pendiente", "activa")
+         LIMIT 1`,
+        [id, ownerContext.actorId],
+        (findErr, findResults) => {
+            if (findErr) {
+                console.error('Error al validar reserva para cancelar:', findErr);
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
 
-            if (result.affectedRows === 0) {
+            if (!findResults || findResults.length === 0) {
                 return res.status(404).json({ mensaje: 'Reserva no encontrada o no se puede cancelar', message: 'Reservation not found or cannot be cancelled' });
             }
 
-            db.query('SELECT parqueadero_id FROM reservas WHERE id = ? LIMIT 1', [id], (parqErr, parqResults) => {
-                const parqueaderoId = (!parqErr && parqResults && parqResults.length > 0)
-                    ? toPositiveInt(parqResults[0].parqueadero_id)
-                    : null;
+            const parqueaderoId = toPositiveInt(findResults[0].parqueadero_id);
 
-                if (!parqueaderoId) {
-                    return res.json({ mensaje: 'Reserva cancelada', message: 'Reservation cancelled' });
-                }
-
-                releaseParkingSpot(parqueaderoId, (releaseErr) => {
-                    if (releaseErr) {
-                        console.error('Error al liberar cupo por cancelacion:', releaseErr);
+            db.query(
+                `UPDATE reservas
+                 SET estado = "cancelada"
+                 WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado IN ("pendiente", "activa")`,
+                [id, ownerContext.actorId],
+                (err, result) => {
+                    if (err) {
+                        console.error('Error al cancelar reserva:', err);
+                        return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
                     }
 
-                    emitReservaEvent(parqueaderoId, 'reserva_actualizada', {
-                        reserva_id: id,
-                        estado: 'cancelada',
-                    });
+                    if (!result || result.affectedRows === 0) {
+                        return res.status(404).json({ mensaje: 'Reserva no encontrada o no se puede cancelar', message: 'Reservation not found or cannot be cancelled' });
+                    }
 
-                    return res.json({ mensaje: 'Reserva cancelada', message: 'Reservation cancelled' });
-                });
-            });
+                    if (!parqueaderoId) {
+                        return res.json({ mensaje: 'Reserva cancelada', message: 'Reservation cancelled' });
+                    }
+
+                    releaseParkingSpot(parqueaderoId, (releaseErr) => {
+                        if (releaseErr) {
+                            console.error('Error al liberar cupo por cancelacion:', releaseErr);
+                        }
+
+                        emitReservaEvent(parqueaderoId, 'reserva_actualizada', {
+                            reserva_id: id,
+                            estado: 'cancelada',
+                        });
+
+                        return res.json({ mensaje: 'Reserva cancelada', message: 'Reservation cancelled' });
+                    });
+                },
+            );
         },
     );
 };
@@ -714,11 +731,20 @@ exports.cancelarReserva = (req, res) => {
 // Completar reserva
 exports.completarReserva = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
     }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
+    }
 
-    db.query('SELECT parqueadero_id, tipo_vehiculo, fecha_reserva, hora_inicio, estado FROM reservas WHERE id = ?', [id], (err, results) => {
+    db.query(
+        `SELECT parqueadero_id, tipo_vehiculo, fecha_reserva, hora_inicio, estado
+         FROM reservas
+         WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+        [id, ownerContext.actorId],
+        (err, results) => {
         if (err) {
             console.error('Error al obtener reserva:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
@@ -750,8 +776,10 @@ exports.completarReserva = (req, res) => {
                 );
 
                 db.query(
-                    'UPDATE reservas SET hora_fin = CURTIME(), tiempo_total = ?, valor_estimado = ?, estado = "completada" WHERE id = ?',
-                    [horas, valorTotal, id],
+                    `UPDATE reservas
+                     SET hora_fin = CURTIME(), tiempo_total = ?, valor_estimado = ?, estado = "completada"
+                     WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+                    [horas, valorTotal, id, ownerContext.actorId],
                     (updateErr) => {
                         if (updateErr) {
                             console.error('Error al completar reserva:', updateErr);
@@ -788,8 +816,10 @@ exports.completarReserva = (req, res) => {
             }
 
             db.query(
-                'SELECT GREATEST(TIMESTAMPDIFF(SECOND, TIMESTAMP(fecha_reserva, hora_inicio), NOW()), 0) AS segundos FROM reservas WHERE id = ?',
-                [id],
+                `SELECT GREATEST(TIMESTAMPDIFF(SECOND, TIMESTAMP(fecha_reserva, hora_inicio), NOW()), 0) AS segundos
+                 FROM reservas
+                 WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+                [id, ownerContext.actorId],
                 (diffErr, diffResults) => {
                     if (diffErr) {
                         console.error('Error al calcular diferencia de tiempo:', diffErr);
@@ -802,39 +832,64 @@ exports.completarReserva = (req, res) => {
                 },
             );
         });
-    });
+    },
+    );
 };
 
 // Autorizar ingreso (compatibilidad endpoint autorizar/autorizar-ingreso)
 exports.autorizarIngreso = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
     }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
+    }
 
     db.query(
-        'UPDATE reservas SET estado = "activa", fecha_reserva = CURDATE(), hora_inicio = CURTIME() WHERE id = ? AND estado = "pendiente"',
-        [id],
-        (err, result) => {
-            if (err) {
-                console.error('Error al autorizar ingreso:', err);
+        `SELECT parqueadero_id
+         FROM reservas
+         WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado = "pendiente"
+         LIMIT 1`,
+        [id, ownerContext.actorId],
+        (findErr, findResults) => {
+            if (findErr) {
+                console.error('Error al validar reserva para autorizar ingreso:', findErr);
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
 
-            if (result.affectedRows === 0) {
+            if (!findResults || findResults.length === 0) {
                 return res.status(404).json({ mensaje: 'Reserva no encontrada o no se puede autorizar', message: 'Reservation not found or cannot be authorized' });
             }
 
-            db.query('SELECT parqueadero_id FROM reservas WHERE id = ? LIMIT 1', [id], (parqErr, parqResults) => {
-                if (!parqErr && parqResults && parqResults.length > 0) {
-                    emitReservaEvent(parqResults[0].parqueadero_id, 'reserva_actualizada', {
-                        reserva_id: id,
-                        estado: 'activa',
-                    });
-                }
-            });
+            const parqueaderoId = toPositiveInt(findResults[0].parqueadero_id);
 
-            return res.json({ mensaje: 'Ingreso autorizado', message: 'Entry authorized' });
+            db.query(
+                `UPDATE reservas
+                 SET estado = "activa", fecha_reserva = CURDATE(), hora_inicio = CURTIME()
+                 WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado = "pendiente"`,
+                [id, ownerContext.actorId],
+                (err, result) => {
+                    if (err) {
+                        console.error('Error al autorizar ingreso:', err);
+                        return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+                    }
+
+                    if (!result || result.affectedRows === 0) {
+                        return res.status(404).json({ mensaje: 'Reserva no encontrada o no se puede autorizar', message: 'Reservation not found or cannot be authorized' });
+                    }
+
+                    if (parqueaderoId) {
+                        emitReservaEvent(parqueaderoId, 'reserva_actualizada', {
+                            reserva_id: id,
+                            estado: 'activa',
+                        });
+                    }
+
+                    return res.json({ mensaje: 'Ingreso autorizado', message: 'Entry authorized' });
+                },
+            );
         },
     );
 };
@@ -842,12 +897,20 @@ exports.autorizarIngreso = (req, res) => {
 // Marcar llegada real
 exports.marcarLlegada = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
     }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
+    }
 
-    const sql = 'UPDATE reservas SET fecha_reserva = CURDATE(), hora_inicio = CURTIME(), estado = "activa" WHERE id = ? AND estado = "pendiente"';
-    db.query(sql, [id], (err, result) => {
+    const sql = `
+        UPDATE reservas
+        SET fecha_reserva = CURDATE(), hora_inicio = CURTIME(), estado = "activa"
+        WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado = "pendiente"
+    `;
+    db.query(sql, [id, ownerContext.actorId], (err, result) => {
         if (err) {
             console.error('Error al marcar llegada:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
@@ -870,11 +933,20 @@ exports.marcarLlegada = (req, res) => {
 // Marcar salida real
 exports.marcarSalida = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
     }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
+    }
 
-    db.query('SELECT parqueadero_id, tipo_vehiculo, fecha_reserva, hora_inicio, estado FROM reservas WHERE id = ?', [id], (err, results) => {
+    db.query(
+        `SELECT parqueadero_id, tipo_vehiculo, fecha_reserva, hora_inicio, estado
+         FROM reservas
+         WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+        [id, ownerContext.actorId],
+        (err, results) => {
         if (err) {
             console.error('Error al obtener reserva:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
@@ -898,8 +970,10 @@ exports.marcarSalida = (req, res) => {
             }
 
             db.query(
-                'SELECT GREATEST(TIMESTAMPDIFF(SECOND, TIMESTAMP(fecha_reserva, hora_inicio), NOW()), 0) AS segundos FROM reservas WHERE id = ?',
-                [id],
+                `SELECT GREATEST(TIMESTAMPDIFF(SECOND, TIMESTAMP(fecha_reserva, hora_inicio), NOW()), 0) AS segundos
+                 FROM reservas
+                 WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+                [id, ownerContext.actorId],
                 (diffErr, diffResults) => {
                     if (diffErr) {
                         console.error('Error al calcular diferencia de tiempo:', diffErr);
@@ -916,8 +990,10 @@ exports.marcarSalida = (req, res) => {
                     );
 
                     db.query(
-                        'UPDATE reservas SET hora_fin = CURTIME(), tiempo_total = ?, valor_estimado = ?, estado = "completada" WHERE id = ?',
-                        [horas, valorTotal, id],
+                        `UPDATE reservas
+                         SET hora_fin = CURTIME(), tiempo_total = ?, valor_estimado = ?, estado = "completada"
+                         WHERE id = ? AND ${ownerContext.ownerColumn} = ?`,
+                        [horas, valorTotal, id, ownerContext.actorId],
                         (updateErr) => {
                             if (updateErr) {
                                 console.error('Error al actualizar reserva con salida:', updateErr);
@@ -949,14 +1025,19 @@ exports.marcarSalida = (req, res) => {
                 },
             );
         });
-    });
+    },
+    );
 };
 
 // Obtener tarifa para pago
 exports.getTarifaReserva = (req, res) => {
     const id = toPositiveInt(req.params.id);
+    const ownerContext = getReservaOwnerContext(req);
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de reserva invÃ¡lido', message: 'Invalid reservation id' });
+    }
+    if (!ownerContext) {
+        return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
     }
 
     const sql = `
@@ -968,10 +1049,10 @@ exports.getTarifaReserva = (req, res) => {
             r.tipo_vehiculo
         FROM reservas r
         LEFT JOIN tarifas t ON r.parqueadero_id = t.parqueadero_id AND r.tipo_vehiculo = t.tipo_vehiculo
-        WHERE r.id = ?
+        WHERE r.id = ? AND r.${ownerContext.ownerColumn} = ?
     `;
 
-    db.query(sql, [id], (err, results) => {
+    db.query(sql, [id, ownerContext.actorId], (err, results) => {
         if (err) {
             console.error('Error al obtener tarifa:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });

@@ -6,6 +6,8 @@ describe('Parqueadero endpoints', () => {
     const timestamp = Date.now();
     const email = `parqueaderoprueba+${timestamp}@gmail.com`;
     const password = '123456';
+    let parqueaderoId;
+    let parqueaderoToken;
 
     test('register parqueadero missing fields should return 400', async () => {
         const res = await request(app).post('/api/parqueaderos/register').send({ nombre: 'P' });
@@ -24,6 +26,7 @@ describe('Parqueadero endpoints', () => {
         });
         expect([200, 201]).toContain(res.statusCode);
         expect(res.body).toHaveProperty('id');
+        parqueaderoId = res.body.id;
     });
 
     test('register same parqueadero again should return 409 or 500', async () => {
@@ -43,6 +46,7 @@ describe('Parqueadero endpoints', () => {
         const res = await request(app).post('/api/parqueaderos/login').send({ email, password });
         expect(res.statusCode).toBe(200);
         expect(res.body).toHaveProperty('token');
+        parqueaderoToken = res.body.token;
     });
 
     test('login parqueadero wrong password returns 401', async () => {
@@ -54,6 +58,20 @@ describe('Parqueadero endpoints', () => {
         const res = await request(app).get('/api/parqueaderos');
         expect(res.statusCode).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    test('get parqueadero publico no expone email del propietario', async () => {
+        const res = await request(app).get(`/api/parqueaderos/${parqueaderoId}`);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.email).toBeUndefined();
+    });
+
+    test('get parqueadero del propietario si expone email autenticado', async () => {
+        const res = await request(app)
+            .get(`/api/parqueaderos/${parqueaderoId}`)
+            .set('Authorization', `Bearer ${parqueaderoToken}`);
+        expect(res.statusCode).toBe(200);
+        expect(res.body.email).toBe(email);
     });
 
     test('get tarifas should return array', async () => {

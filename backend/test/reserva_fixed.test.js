@@ -3,7 +3,7 @@ const app = require('../server');
 const db = require('../config/db');
 
 describe('Reserva endpoints', () => {
-    let userToken, parqueaderoId, reservaId, userId;
+    let userToken, parqueaderoToken, parqueaderoId, reservaId, userId;
 
     beforeAll(async () => {
         // Usar usuario existente juan@gmail.com
@@ -38,6 +38,12 @@ describe('Reserva endpoints', () => {
             });
 
         parqueaderoId = parqueaderoRes.body.id;
+
+        const parqueaderoLoginRes = await request(app)
+            .post('/api/parqueaderos/login')
+            .send({ email: parqueaderoEmail, password: '123456' });
+
+        parqueaderoToken = parqueaderoLoginRes.body.token;
 
         // Insertar tarifas de prueba para el parqueadero usando promesas
         await new Promise((resolve, reject) => {
@@ -92,6 +98,14 @@ describe('Reserva endpoints', () => {
         expect(Array.isArray(res.body)).toBe(true);
     });
 
+    test('usuario no puede ver reservas administrativas del parqueadero', async () => {
+        const res = await request(app)
+            .get(`/api/reservas/parqueadero/${parqueaderoId}`)
+            .set('Authorization', `Bearer ${userToken}`);
+
+        expect(res.statusCode).toBe(403);
+    });
+
     test('cancelar reserva should succeed', async () => {
         if (!reservaId) {
             console.log('Skipping cancel test - no reservation created');
@@ -140,7 +154,7 @@ describe('Reserva endpoints', () => {
 
             const res = await request(app)
                 .put(`/api/reservas/${newReservaId}/completar`)
-                .set('Authorization', `Bearer ${userToken}`);
+                .set('Authorization', `Bearer ${parqueaderoToken}`);
 
             expect(res.statusCode).toBe(200);
         }

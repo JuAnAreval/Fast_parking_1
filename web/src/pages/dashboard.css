@@ -4,8 +4,8 @@
 }
 
 .dashboard-shell {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
   padding: 24px;
@@ -15,7 +15,7 @@
 
 .dashboard-shell-loading {
   text-align: center;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 16px;
   padding: 26px;
 }
@@ -70,9 +70,9 @@
   border-radius: 11px;
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  color: var(--text-primary);
+  background: var(--surface);
+  border: 1px solid var(--border);
   box-shadow: 0 7px 14px rgba(15, 23, 42, 0.12);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
@@ -95,8 +95,8 @@
 }
 
 .dashboard-stat-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px;
   display: grid;
@@ -110,21 +110,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f1f5f9;
-  color: #334155;
+  background: var(--surface-2);
+  color: var(--primary-500);
   font-size: 18px;
 }
 
 .dashboard-stat-label {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .dashboard-stat-value {
   font-size: 26px;
   line-height: 1;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .dashboard-stat-value.is-available {
@@ -142,8 +142,8 @@
 }
 
 .dashboard-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px;
 }
@@ -158,7 +158,7 @@
 
 .dashboard-panel-head h2 {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 19px;
 }
 
@@ -169,14 +169,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #334155;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
+  color: var(--primary-500);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   text-decoration: none;
 }
 
 .dashboard-mini-action:hover {
-  background: #e2e8f0;
+  background: var(--bg-soft);
 }
 
 .dashboard-info-list {
@@ -186,28 +186,28 @@
 }
 
 .dashboard-info-list div {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px;
 }
 
 .dashboard-info-list dt {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
 
 .dashboard-info-list dd {
   margin: 4px 0 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 15px;
   font-weight: 600;
 }
 
 .dashboard-empty-note {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
@@ -223,7 +223,7 @@
 
 .dashboard-tarifas-table th,
 .dashboard-tarifas-table td {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   padding: 11px 8px;
   text-align: left;
 }
@@ -232,11 +232,15 @@
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
-  color: #64748b;
+  color: var(--text-secondary);
+}
+
+.dashboard-tarifas-table td {
+  color: var(--text-primary);
 }
 
 .dashboard-text-action {
-  color: #1f2937;
+  color: var(--text-primary);
   font-size: 14px;
   font-weight: 700;
   text-decoration: none;
@@ -253,9 +257,9 @@
 
 .dashboard-reserva-card {
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   padding: 12px;
-  background: #f8fafc;
+  background: var(--surface-2);
 }
 
 .dashboard-reserva-card.state-pendiente {
@@ -283,7 +287,7 @@
 }
 
 .dashboard-reserva-id {
-  color: #334155;
+  color: var(--primary-500);
   font-size: 14px;
   font-weight: 700;
 }
@@ -307,8 +311,8 @@
 }
 
 .dashboard-status-badge.completada {
-  background: #e2e8f0;
-  color: #334155;
+  background: var(--surface-2);
+  color: var(--primary-500);
 }
 
 .dashboard-status-badge.cancelada {
@@ -318,13 +322,13 @@
 
 .dashboard-reserva-main {
   margin: 0;
-  color: #0f172a;
+  color: var(--text-primary);
   font-size: 14px;
 }
 
 .dashboard-reserva-row {
   margin: 6px 0 0;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 

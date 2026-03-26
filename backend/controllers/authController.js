@@ -1,29 +1,9 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const Usuario = require("../models/usuarioModel");
-
-const SECRET_KEY = process.env.JWT_SECRET || "secreto123"; // prefer env var, fallback for compatibility
+const { signUserToken } = require("../middlewares/auth");
 const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
 
 const normalizePhone = (value) => String(value || "").trim();
-
-const getUserIdFromAuthHeader = (req) => {
-    const authHeader = req.headers?.authorization || req.headers?.Authorization;
-    if (!authHeader || typeof authHeader !== 'string') return null;
-    if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
-
-    const token = authHeader.slice(7).trim();
-    if (!token) return null;
-
-    try {
-        const decoded = jwt.verify(token, SECRET_KEY);
-        const id = Number(decoded?.id);
-        if (!Number.isInteger(id) || id <= 0) return null;
-        return id;
-    } catch (_) {
-        return null;
-    }
-};
 
 exports.registrar = (req, res) => {
     let { nombre, email, password, telefono } = req.body;
@@ -91,7 +71,7 @@ exports.login = (req, res) => {
             return res.status(401).json({ mensaje: "Contraseña incorrecta", message: "Incorrect password" });
         }
 
-        const token = jwt.sign({ id: usuario.id }, SECRET_KEY, { expiresIn: "1h" });
+        const token = signUserToken(usuario);
 
         // Enviamos también los datos del usuario (excepto la contraseña)
         const { password: _, ...usuarioSinPassword } = usuario;
@@ -105,7 +85,7 @@ exports.login = (req, res) => {
 };
 
 exports.perfil = (req, res) => {
-    const userId = getUserIdFromAuthHeader(req);
+    const userId = Number(req.auth?.actorId || 0);
     if (!userId) {
         return res.status(401).json({ mensaje: "No autorizado", message: "Unauthorized" });
     }
@@ -132,7 +112,7 @@ exports.perfil = (req, res) => {
 };
 
 exports.actualizarPerfil = (req, res) => {
-    const userId = getUserIdFromAuthHeader(req);
+    const userId = Number(req.auth?.actorId || 0);
     if (!userId) {
         return res.status(401).json({ mensaje: "No autorizado", message: "Unauthorized" });
     }
@@ -185,7 +165,7 @@ exports.actualizarPerfil = (req, res) => {
 };
 
 exports.cambiarPassword = (req, res) => {
-    const userId = getUserIdFromAuthHeader(req);
+    const userId = Number(req.auth?.actorId || 0);
     if (!userId) {
         return res.status(401).json({ mensaje: "No autorizado", message: "Unauthorized" });
     }

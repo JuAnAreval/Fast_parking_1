@@ -10,7 +10,7 @@ const dbQuery = (sql, params = []) => new Promise((resolve, reject) => {
 });
 
 describe('Reserva endpoints', () => {
-    let userToken, parqueaderoId, reservaId;
+    let userToken, parqueaderoToken, parqueaderoId, reservaId, userId;
 
     beforeAll(async () => {
         // Crear usuario de prueba
@@ -31,6 +31,9 @@ describe('Reserva endpoints', () => {
             .send({ email: userEmail, password: '123456' });
 
         userToken = loginRes.body.token;
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(userToken, process.env.JWT_SECRET || 'secreto123');
+        userId = decoded.id;
 
         // Crear parqueadero de prueba
         const parqueaderoEmail = `parqueadero+${timestamp}@gmail.com`;
@@ -47,6 +50,12 @@ describe('Reserva endpoints', () => {
             });
 
         parqueaderoId = parqueaderoRes.body.id;
+
+        const parqueaderoLoginRes = await request(app)
+            .post('/api/parqueaderos/login')
+            .send({ email: parqueaderoEmail, password: '123456' });
+
+        parqueaderoToken = parqueaderoLoginRes.body.token;
 
         // Tarifas de prueba para validar calculo de valor al completar.
         await dbQuery(
@@ -75,7 +84,7 @@ describe('Reserva endpoints', () => {
             .post('/api/reservas')
             .set('Authorization', `Bearer ${userToken}`)
             .send({
-                usuario_id: 1, // TODO: obtener del token
+                usuario_id: userId,
                 parqueadero_id: parqueaderoId,
                 fecha_reserva: tomorrow.toISOString().split('T')[0],
                 hora_inicio: '10:00:00',
@@ -91,11 +100,19 @@ describe('Reserva endpoints', () => {
 
     test('get reservas usuario should return array', async () => {
         const res = await request(app)
-            .get('/api/reservas/usuario/1') // TODO: obtener del token
+            .get(`/api/reservas/usuario/${userId}`)
             .set('Authorization', `Bearer ${userToken}`);
 
         expect(res.statusCode).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
+    });
+
+    test('usuario no puede ver reservas administrativas del parqueadero', async () => {
+        const res = await request(app)
+            .get(`/api/reservas/parqueadero/${parqueaderoId}`)
+            .set('Authorization', `Bearer ${userToken}`);
+
+        expect(res.statusCode).toBe(403);
     });
 
     test('cancelar reserva should succeed', async () => {
@@ -115,7 +132,7 @@ describe('Reserva endpoints', () => {
             .post('/api/reservas')
             .set('Authorization', `Bearer ${userToken}`)
             .send({
-                usuario_id: 1,
+                usuario_id: userId,
                 parqueadero_id: parqueaderoId,
                 fecha_reserva: tomorrow.toISOString().split('T')[0],
                 hora_inicio: '12:00:00',
@@ -128,7 +145,7 @@ describe('Reserva endpoints', () => {
 
         const res = await request(app)
             .put(`/api/reservas/${newReservaId}/completar`)
-            .set('Authorization', `Bearer ${userToken}`);
+            .set('Authorization', `Bearer ${parqueaderoToken}`);
 
         expect(res.statusCode).toBe(200);
     });
@@ -138,7 +155,7 @@ describe('Reserva endpoints', () => {
             .post('/api/reservas')
             .set('Authorization', `Bearer ${userToken}`)
             .send({
-                usuario_id: 1,
+                usuario_id: userId,
                 parqueadero_id: parqueaderoId,
                 tipo_vehiculo: 'moto',
                 observaciones: 'Test calculo tarifa',
@@ -164,7 +181,7 @@ describe('Reserva endpoints', () => {
 
         const completeRes = await request(app)
             .put(`/api/reservas/${newReservaId}/completar`)
-            .set('Authorization', `Bearer ${userToken}`);
+            .set('Authorization', `Bearer ${parqueaderoToken}`);
 
         expect(completeRes.statusCode).toBe(200);
         expect(Number(completeRes.body.valor_total)).toBe(3000);

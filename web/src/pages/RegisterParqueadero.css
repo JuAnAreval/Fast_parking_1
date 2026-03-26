@@ -9,11 +9,11 @@
 .register-container .auth-card {
   width: 100%;
   max-width: 1160px;
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 24px;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.1);
   padding: 34px 34px 24px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   animation: register-fade-in 0.45s ease-out;
 }
 
@@ -40,13 +40,13 @@
   gap: 10px;
   font-size: 34px;
   font-weight: 800;
-  color: #0f172a;
+  color: var(--text-primary);
   line-height: 1.1;
 }
 
 .register-container .subtitle {
   font-size: 15px;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-top: 9px;
 }
 
@@ -69,19 +69,19 @@
 
 .register-container .city-selector-group label {
   font-weight: 600;
-  color: #334155;
+  color: var(--primary-500);
   font-size: 14px;
 }
 
 .register-container .city-selector {
   width: 100%;
   padding: 11px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 11px;
-  background: #ffffff;
+  background: var(--surface);
   font-size: 14px;
   outline: none;
-  color: #0f172a;
+  color: var(--text-primary);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -95,7 +95,7 @@
   align-items: center;
   gap: 7px;
   font-weight: 600;
-  color: #334155;
+  color: var(--primary-500);
   margin-bottom: 10px;
 }
 
@@ -103,7 +103,7 @@
   height: 430px;
   width: 100%;
   border-radius: 14px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   overflow: hidden;
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1);
 }
@@ -111,7 +111,7 @@
 .register-container .coords {
   margin-top: 10px;
   font-size: 13px;
-  color: #475569;
+  color: var(--text-secondary);
   text-align: center;
   font-weight: 600;
 }
@@ -130,19 +130,19 @@
 .register-container .input-icon {
   position: absolute;
   left: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 15px;
   z-index: 1;
 }
 
 .register-container .input-group input {
   width: 100%;
-  border: 1px solid #e2e8f0;
-  background-color: #ffffff;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
   border-radius: 11px;
   padding: 11px 12px 11px 36px;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -208,12 +208,12 @@
 .register-container .footer-text {
   margin-top: 20px;
   text-align: center;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .register-container .link {
-  color: #1f2937;
+  color: var(--text-primary);
   text-decoration: none;
   font-weight: 700;
 }

@@ -4,7 +4,7 @@ export const API_ENVIRONMENTS = {
 };
 
 // Cambia solo esta linea para alternar entre localhost y produccion.
-export const API_ENVIRONMENT = API_ENVIRONMENTS.production;
+export const API_ENVIRONMENT = API_ENVIRONMENTS.production; 
 
 const API_TARGETS = {
   [API_ENVIRONMENTS.local]: {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:usuarios/main.dart';
 
@@ -7,11 +8,13 @@ void main() {
   testWidgets('Login screen shows inputs and navigates to register', (
     WidgetTester tester,
   ) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ParqueaderosApp());
+    await tester.pumpAndSettle();
 
-    expect(find.text('Iniciar Sesion'), findsOneWidget);
+    expect(find.text('Iniciar sesion'), findsOneWidget);
     expect(find.byType(TextField), findsNWidgets(2));
-    expect(find.widgetWithText(ElevatedButton, 'Ingresar'), findsOneWidget);
+    expect(find.text('Ingresar'), findsOneWidget);
     expect(
       find.widgetWithText(TextButton, 'No tienes cuenta? Registrate aqui'),
       findsOneWidget,
@@ -22,7 +25,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Registro de Usuario'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, 'Registrarse'), findsOneWidget);
+    expect(find.text('Crear cuenta'), findsOneWidget);
+    expect(find.text('Registrarse'), findsOneWidget);
   });
 }

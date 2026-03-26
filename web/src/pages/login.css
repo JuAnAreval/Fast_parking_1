@@ -8,7 +8,7 @@
 .auth-box .icon {
   position: absolute;
   left: 14px;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 1.02rem;
   z-index: 2;
 }
@@ -28,23 +28,23 @@
   background: transparent;
   border: none;
   cursor: pointer;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 1rem;
   z-index: 2;
 }
 
 .auth-box .toggle-pass:hover {
-  color: #1f2937;
+  color: var(--text-primary);
 }
 
 .auth-box .register-text {
   margin-top: 18px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.94rem;
 }
 
 .auth-box .link {
-  color: #1f2937;
+  color: var(--text-primary);
   text-decoration: none;
   font-weight: 700;
 }

@@ -4,8 +4,8 @@
 }
 
 .parking-config-shell {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 20px;
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
   padding: 24px;
@@ -14,7 +14,7 @@
 .parking-config-loading {
   text-align: center;
   font-size: 16px;
-  color: #475569;
+  color: var(--text-secondary);
   padding: 24px;
 }
 
@@ -25,19 +25,19 @@
   gap: 16px;
   margin-bottom: 16px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .parking-config-header h1 {
   margin: 0;
   font-size: 31px;
   line-height: 1.12;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .parking-config-header p {
   margin-top: 8px;
-  color: #475569;
+  color: var(--text-secondary);
   font-size: 15px;
 }
 
@@ -49,7 +49,7 @@
 
 .parking-config-flow-note {
   margin: 0;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -89,8 +89,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px 14px;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
@@ -98,13 +98,13 @@
 
 .config-summary-row span {
   display: block;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
 .config-summary-row strong {
   font-size: 19px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .parking-config-grid {
@@ -114,8 +114,8 @@
 }
 
 .config-panel {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
   animation: fade-up 0.35s ease forwards;
@@ -127,12 +127,12 @@
   gap: 8px;
   margin: 0 0 6px;
   font-size: 19px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .config-panel-intro {
   margin: 0 0 12px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 13px;
 }
 
@@ -151,19 +151,19 @@
   display: grid;
   gap: 6px;
   font-size: 13px;
-  color: #334155;
+  color: var(--primary-500);
   font-weight: 600;
 }
 
 .config-fields input {
   width: 100%;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 10px;
   height: 40px;
   padding: 0 11px;
   font-size: 14px;
-  color: #0f172a;
-  background: #ffffff;
+  color: var(--text-primary);
+  background: var(--surface);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -176,7 +176,7 @@
 .field-help {
   margin-top: 1px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -209,10 +209,10 @@
 
 .map-action-btn {
   width: fit-content;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
-  color: #334155;
+  background: var(--surface);
+  color: var(--primary-500);
   min-height: 38px;
   padding: 0 12px;
   font-size: 13px;
@@ -239,21 +239,21 @@
 .location-coords-preview {
   margin: 0;
   font-size: 12px;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 600;
 }
 
 .config-help-text {
   margin-top: 8px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .config-map {
   height: 360px;
   width: 100%;
   border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   overflow: hidden;
 }
 
@@ -272,8 +272,8 @@
 }
 
 .tarifa-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
   display: grid;
@@ -286,15 +286,15 @@
   gap: 8px;
   margin: 0;
   font-size: 16px;
-  color: #0f172a;
+  color: var(--text-primary);
 }
 
 .money-input {
   display: flex;
   align-items: center;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border);
   border-radius: 10px;
-  background: #ffffff;
+  background: var(--surface);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   overflow: hidden;
 }
@@ -305,11 +305,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-right: 1px solid #e2e8f0;
-  color: #475569;
+  border-right: 1px solid var(--border);
+  color: var(--text-secondary);
   font-size: 12px;
   font-weight: 700;
-  background: #f8fafc;
+  background: var(--surface-2);
 }
 
 .money-input input {
@@ -319,7 +319,7 @@
   height: 40px;
   padding: 0 11px;
   font-size: 14px;
-  color: #0f172a;
+  color: var(--text-primary);
   background: transparent;
 }
 

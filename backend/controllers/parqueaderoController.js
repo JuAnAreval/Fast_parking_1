@@ -1,8 +1,6 @@
 ﻿const db = require('../config/db');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-
-const SECRET_KEY = process.env.JWT_SECRET || 'secreto123';
+const { ACTOR_TYPES, signParqueaderoToken } = require('../middlewares/auth');
 
 const toPositiveInt = (value) => {
     const n = Number(value);
@@ -41,7 +39,12 @@ exports.getParqueadero = (req, res) => {
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de parqueadero invÃ¡lido', message: 'Invalid parking id' });
     }
-    const sql = 'SELECT id, nombre, direccion, cupos, disponible, email, latitud, longitud FROM parqueaderos WHERE id = ?';
+    const isOwner =
+        req.auth?.actorType === ACTOR_TYPES.PARQUEADERO &&
+        req.auth?.actorId === id;
+    const sql = isOwner
+        ? 'SELECT id, nombre, direccion, cupos, disponible, email, latitud, longitud FROM parqueaderos WHERE id = ?'
+        : 'SELECT id, nombre, direccion, cupos, latitud, longitud FROM parqueaderos WHERE id = ?';
     db.query(sql, [id], (err, results) => {
         if (err) {
             console.error('Error al obtener parqueadero:', err);
@@ -391,7 +394,7 @@ exports.loginParqueadero = (req, res) => {
             }
 
             // Generar token JWT con id del parqueadero (u otros claims necesarios)
-            const token = jwt.sign({ id: parqueadero.id, email: parqueadero.email }, SECRET_KEY, { expiresIn: '8h' });
+            const token = signParqueaderoToken(parqueadero);
 
             res.json({ mensaje: 'Login exitoso', message: 'Login successful', token, parqueadero: { id: parqueadero.id, nombre: parqueadero.nombre, email: parqueadero.email } });
         });
