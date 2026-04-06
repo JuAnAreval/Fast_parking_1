@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../constants/constants.dart';
+import '../../utils/vehicle_rules.dart';
 
 /// Widget que muestra la tarjeta de detalles del parqueadero
 class ParkingDetailCard extends StatelessWidget {
@@ -63,11 +64,78 @@ class ParkingDetailCard extends StatelessWidget {
             color: AppColors.primary,
           ),
           const SizedBox(height: 12),
+          _buildSupportedTypesSection(),
+          const SizedBox(height: 12),
           _buildTarifasSection(),
           const SizedBox(height: 20),
           _buildReservarButton(),
         ],
       ),
+    );
+  }
+
+  Widget _buildSupportedTypesSection() {
+    final tipos =
+        (parqueadero['tipos_vehiculo_habilitados'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((item) => normalizeVehicleType(item?.toString()))
+            .where((item) => item.isNotEmpty)
+            .toList();
+
+    if (tipos.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recibe:',
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: AppColors.text,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: tipos
+              .map(
+                (tipo) => Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        vehicleTypeIcon(tipo),
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        vehicleTypeLabel(tipo),
+                        style: const TextStyle(
+                          color: AppColors.text,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      ],
     );
   }
 
@@ -271,15 +339,6 @@ class ParkingDetailCard extends StatelessWidget {
   }
 
   IconData _getVehicleIcon(String? tipoVehiculo) {
-    switch (tipoVehiculo?.toLowerCase()) {
-      case 'carro':
-        return Icons.directions_car;
-      case 'moto':
-        return Icons.motorcycle;
-      case 'camion':
-        return Icons.local_shipping;
-      default:
-        return Icons.directions_car;
-    }
+    return vehicleTypeIcon(tipoVehiculo);
   }
 }

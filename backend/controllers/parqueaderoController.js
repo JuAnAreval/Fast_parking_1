@@ -1,6 +1,7 @@
 ﻿const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { ACTOR_TYPES, signParqueaderoToken } = require('../middlewares/auth');
+const { issueVerificationForRecord, verifyEmailToken } = require('../services/verificationService');
 
 const toPositiveInt = (value) => {
     const n = Number(value);
@@ -21,15 +22,84 @@ const toNonNegativeInt = (value) => {
     return Math.max(0, Math.round(n));
 };
 
+const normalizeTiposVehiculoHabilitados = (value) => {
+    if (Array.isArray(value)) {
+        return [...new Set(value.map((item) => String(item || '').trim().toLowerCase()).filter(Boolean))];
+    }
+
+    return [...new Set(
+        String(value || '')
+            .split(',')
+            .map((item) => item.trim().toLowerCase())
+            .filter(Boolean),
+    )];
+};
+
+const includeVerificationPreview = (payload, verification) => {
+    if (process.env.NODE_ENV !== 'test' || !verification?.token) {
+        return payload;
+    }
+
+    return {
+        ...payload,
+        verification_preview_token: verification.token,
+        verification_preview_url: verification.verificationUrl,
+    };
+};
+
 // Obtener lista de parqueaderos
 exports.getParqueaderos = (req, res) => {
-    const sql = 'SELECT id, nombre, direccion, cupos, disponible, latitud, longitud FROM parqueaderos';
+    const sql = `
+        SELECT
+            p.id,
+            p.nombre,
+            p.direccion,
+            p.cupos,
+            p.disponible,
+            p.latitud,
+            p.longitud,
+            GROUP_CONCAT(
+                DISTINCT CASE
+                    WHEN COALESCE(t.tarifa_primera_hora, 0) > 0
+                     AND COALESCE(t.tarifa_hora_adicional, 0) > 0
+                    THEN LOWER(t.tipo_vehiculo)
+                    ELSE NULL
+                END
+                ORDER BY t.tipo_vehiculo
+                SEPARATOR ','
+            ) AS tipos_vehiculo_habilitados
+        FROM parqueaderos p
+        LEFT JOIN tarifas t ON t.parqueadero_id = p.id
+        GROUP BY
+            p.id,
+            p.nombre,
+            p.direccion,
+            p.cupos,
+            p.disponible,
+            p.latitud,
+            p.longitud
+    `;
     db.query(sql, (err, results) => {
         if (err) {
-            console.error('Error al obtener parqueaderos:', err);
-            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+            const fallbackSql = 'SELECT id, nombre, direccion, cupos, disponible, latitud, longitud FROM parqueaderos';
+            return db.query(fallbackSql, (fallbackErr, fallbackResults) => {
+                if (fallbackErr) {
+                    console.error('Error al obtener parqueaderos:', fallbackErr);
+                    return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+                }
+
+                const data = (fallbackResults || []).map((row) => ({
+                    ...row,
+                    tipos_vehiculo_habilitados: [],
+                }));
+                return res.json(data);
+            });
         }
-        res.json(results);
+        const data = (results || []).map((row) => ({
+            ...row,
+            tipos_vehiculo_habilitados: normalizeTiposVehiculoHabilitados(row.tipos_vehiculo_habilitados),
+        }));
+        return res.json(data);
     });
 };
 
@@ -294,19 +364,58 @@ exports.registerParqueadero = (req, res) => {
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
         }
 
-    const sql = 'INSERT INTO parqueaderos (nombre, direccion, cupos, email, password, latitud, longitud) VALUES (?, ?, ?, ?, ?, ?, ?)';
-    const params = [nombre, direccion, cuposValue, email, hashedPassword, latitudValue, longitudValue];
+        const sql = `
+            INSERT INTO parqueaderos (
+                nombre,
+                direccion,
+                cupos,
+                email,
+                password,
+                latitud,
+                longitud,
+                email_verificado,
+                verification_token_hash,
+                verification_token_expires_at,
+                email_verificado_en
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, 0, NULL, NULL, NULL)
+        `;
+        const params = [nombre, direccion, cuposValue, email, hashedPassword, latitudValue, longitudValue];
 
-        db.query(sql, params, (err, result) => {
+        db.query(sql, params, async (err, result) => {
             if (err) {
                 console.error('Error al insertar parqueadero:', err);
-                // Manejar email duplicado (cÃ³digo MySQL ER_DUP_ENTRY)
                 if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(409).json({ mensaje: 'El correo ya estÃ¡ registrado', message: 'Email already registered' });
+                    return res.status(409).json({ mensaje: 'El correo ya esta registrado', message: 'Email already registered' });
                 }
                 return res.status(500).json({ mensaje: 'Error al registrar parqueadero', message: 'Error registering parking' });
             }
-            res.json({ mensaje: 'Parqueadero registrado con Ã©xito', message: 'Parking registered successfully', id: result.insertId });
+
+            try {
+                const verification = await issueVerificationForRecord('parqueadero', {
+                    id: result?.insertId,
+                    nombre,
+                    email,
+                });
+
+                return res.status(201).json(
+                    includeVerificationPreview(
+                        {
+                            mensaje: 'Parqueadero registrado con exito. Revisa tu correo para verificar la cuenta.',
+                            message: 'Parking registered successfully. Check your email to verify the account.',
+                            id: result.insertId,
+                        },
+                        verification,
+                    ),
+                );
+            } catch (verificationErr) {
+                console.error('Error preparando verificacion de parqueadero:', verificationErr);
+                return res.status(201).json({
+                    mensaje: 'Parqueadero registrado con exito, pero no se pudo enviar el correo de verificacion.',
+                    message: 'Parking registered successfully, but verification email could not be sent.',
+                    id: result.insertId,
+                });
+            }
         });
     });
 };
@@ -393,12 +502,49 @@ exports.loginParqueadero = (req, res) => {
                 return res.status(401).json({ mensaje: 'ContraseÃ±a incorrecta', message: 'Incorrect password' });
             }
 
+            if (!parqueadero.email_verificado) {
+                return res.status(403).json({
+                    mensaje: 'Debes verificar tu correo antes de iniciar sesion',
+                    message: 'You must verify your email before logging in',
+                    code: 'EMAIL_NOT_VERIFIED',
+                });
+            }
+
             // Generar token JWT con id del parqueadero (u otros claims necesarios)
             const token = signParqueaderoToken(parqueadero);
 
             res.json({ mensaje: 'Login exitoso', message: 'Login successful', token, parqueadero: { id: parqueadero.id, nombre: parqueadero.nombre, email: parqueadero.email } });
         });
     });
+};
+
+exports.verificarEmail = async (req, res) => {
+    try {
+        const token = String(req.query?.token || '').trim();
+        if (!token) {
+            return res.status(400).json({
+                mensaje: 'Token de verificacion requerido',
+                message: 'Verification token is required',
+            });
+        }
+
+        const result = await verifyEmailToken('parqueadero', token);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: 'Correo verificado correctamente',
+            message: 'Email verified successfully',
+            data: result.data,
+        });
+    } catch (err) {
+        console.error('Error verificando email de parqueadero:', err);
+        return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+    }
 };
 
 

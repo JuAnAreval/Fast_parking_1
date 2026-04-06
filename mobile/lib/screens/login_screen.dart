@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../constants/constants.dart';
 import '../services/api_service.dart';
@@ -13,6 +14,7 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
@@ -36,12 +38,23 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  String? _validateEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) {
+      return 'Ingresa tu correo.';
+    }
+
+    final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+    if (!emailRegex.hasMatch(email)) {
+      return 'Ingresa un correo valido.';
+    }
+
+    return null;
+  }
+
   Future<void> _login() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showMessage(
-        'Por favor ingresa correo y contrasena.',
-        color: AppColors.error,
-      );
+    FocusScope.of(context).unfocus();
+    if (!(_formKey.currentState?.validate() ?? false)) {
       return;
     }
 
@@ -59,6 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await ApiService.saveUserId(result['data']['usuario']['id'] as int);
         if (!mounted) return;
 
+        TextInput.finishAutofillContext();
         _showMessage('Inicio de sesion exitoso.', color: AppColors.success);
         widget.onLoginSuccess?.call();
       } else {
@@ -166,72 +180,89 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const Text(
-            'Iniciar sesion',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.text,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Usa el correo y la contrasena de tu cuenta.',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 18),
-          TextField(
-            controller: _emailController,
-            keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(
-              labelText: 'Correo electronico',
-              hintText: 'ejemplo@dominio.com',
-              prefixIcon: Icon(Icons.email_rounded),
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextField(
-            controller: _passwordController,
-            obscureText: !_isPasswordVisible,
-            decoration: InputDecoration(
-              labelText: 'Contrasena',
-              hintText: 'Ingresa tu contrasena',
-              prefixIcon: const Icon(Icons.lock_rounded),
-              suffixIcon: IconButton(
-                onPressed: () {
-                  setState(() => _isPasswordVisible = !_isPasswordVisible);
-                },
-                icon: Icon(
-                  _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
-                  color: AppColors.textSecondary,
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Iniciar sesion',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.text,
                 ),
               ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          ElevatedButton.icon(
-            onPressed: _loading ? null : _login,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+              const SizedBox(height: 6),
+              Text(
+                'Usa el correo y la contrasena de tu cuenta.',
+                style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [AutofillHints.username, AutofillHints.email],
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Correo electronico',
+                  hintText: 'ejemplo@dominio.com',
+                  prefixIcon: Icon(Icons.email_rounded),
+                ),
+                validator: _validateEmail,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _passwordController,
+                obscureText: !_isPasswordVisible,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _loading ? null : _login(),
+                decoration: InputDecoration(
+                  labelText: 'Contrasena',
+                  hintText: 'Ingresa tu contrasena',
+                  prefixIcon: const Icon(Icons.lock_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: () {
+                      setState(() => _isPasswordVisible = !_isPasswordVisible);
+                    },
+                    icon: Icon(
+                      _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: AppColors.textSecondary,
                     ),
-                  )
-                : const Icon(Icons.login_rounded),
-            label: Text(_loading ? 'Ingresando...' : 'Ingresar'),
+                  ),
+                ),
+                validator: (value) {
+                  if ((value ?? '').isEmpty) {
+                    return 'Ingresa tu contrasena.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton.icon(
+                onPressed: _loading ? null : _login,
+                icon: _loading
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.login_rounded),
+                label: Text(_loading ? 'Ingresando...' : 'Ingresar'),
+              ),
+              const SizedBox(height: 10),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, '/register'),
+                child: const Text('No tienes cuenta? Registrate aqui'),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
-          TextButton(
-            onPressed: () => Navigator.pushNamed(context, '/register'),
-            child: const Text('No tienes cuenta? Registrate aqui'),
-          ),
-        ],
+        ),
       ),
     );
   }

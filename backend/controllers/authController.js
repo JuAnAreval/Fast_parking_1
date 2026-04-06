@@ -1,24 +1,38 @@
 const bcrypt = require("bcryptjs");
 const Usuario = require("../models/usuarioModel");
 const { signUserToken } = require("../middlewares/auth");
+const {
+    issueVerificationForRecord,
+    verifyEmailToken,
+} = require("../services/verificationService");
+
 const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
 
 const normalizePhone = (value) => String(value || "").trim();
 
+const includeVerificationPreview = (payload, verification) => {
+    if (process.env.NODE_ENV !== 'test' || !verification?.token) {
+        return payload;
+    }
+
+    return {
+        ...payload,
+        verification_preview_token: verification.token,
+        verification_preview_url: verification.verificationUrl,
+    };
+};
+
 exports.registrar = (req, res) => {
     let { nombre, email, password, telefono } = req.body;
 
-    if (typeof nombre === 'string') {
-        nombre = nombre.trim();
-    }
-    if (typeof email === 'string') {
-        email = email.trim().toLowerCase();
-    }
+    if (typeof nombre === 'string') nombre = nombre.trim();
+    if (typeof email === 'string') email = email.trim().toLowerCase();
     telefono = normalizePhone(telefono);
 
     if (!nombre || !email || !password || !telefono) {
         return res.status(400).json({ mensaje: "Faltan datos", message: "Missing data" });
     }
+
     if (!PHONE_REGEX.test(telefono)) {
         return res.status(400).json({
             mensaje: "Numero de telefono invalido",
@@ -31,15 +45,46 @@ exports.registrar = (req, res) => {
             console.error('Error al validar email de usuario:', err);
             return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
         }
+
         if (results.length > 0) {
-            return res.status(400).json({ mensaje: "El correo ya está registrado", message: "Email already registered" });
+            return res.status(400).json({
+                mensaje: "El correo ya esta registrado",
+                message: "Email already registered",
+            });
         }
 
         const hashedPassword = bcrypt.hashSync(password, 8);
+        Usuario.crear(nombre, email, hashedPassword, telefono, async (createErr, result) => {
+            if (createErr) {
+                console.error('Error al registrar usuario:', createErr);
+                return res.status(500).json({ mensaje: "Error al registrar usuario", message: "Error registering user" });
+            }
 
-        Usuario.crear(nombre, email, hashedPassword, telefono, (err) => {
-            if (err) return res.status(500).json({ mensaje: "Error al registrar usuario" });
-            res.json({ mensaje: "Usuario registrado con éxito", message: "Usuario registrado con éxito" });
+            try {
+                const verification = await issueVerificationForRecord('usuario', {
+                    id: result?.insertId,
+                    nombre,
+                    email,
+                });
+
+                return res.status(201).json(
+                    includeVerificationPreview(
+                        {
+                            mensaje: "Usuario registrado con exito. Revisa tu correo para verificar la cuenta.",
+                            message: "User registered successfully. Check your email to verify the account.",
+                            id: result?.insertId,
+                        },
+                        verification,
+                    ),
+                );
+            } catch (verificationErr) {
+                console.error('Error preparando verificacion de usuario:', verificationErr);
+                return res.status(201).json({
+                    mensaje: "Usuario registrado con exito, pero no se pudo enviar el correo de verificacion.",
+                    message: "User registered successfully, but verification email could not be sent.",
+                    id: result?.insertId,
+                });
+            }
         });
     });
 };
@@ -47,9 +92,7 @@ exports.registrar = (req, res) => {
 exports.login = (req, res) => {
     let { email, password } = req.body;
 
-    if (typeof email === 'string') {
-        email = email.trim().toLowerCase();
-    }
+    if (typeof email === 'string') email = email.trim().toLowerCase();
 
     if (!email || !password) {
         return res.status(400).json({ mensaje: "Faltan datos", message: "Missing data" });
@@ -60,6 +103,7 @@ exports.login = (req, res) => {
             console.error('Error buscando usuario por email:', err);
             return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
         }
+
         if (results.length === 0) {
             return res.status(400).json({ mensaje: "Usuario no encontrado", message: "User not found" });
         }
@@ -68,20 +112,56 @@ exports.login = (req, res) => {
         const passwordValida = bcrypt.compareSync(password, usuario.password);
 
         if (!passwordValida) {
-            return res.status(401).json({ mensaje: "Contraseña incorrecta", message: "Incorrect password" });
+            return res.status(401).json({ mensaje: "Contrasena incorrecta", message: "Incorrect password" });
+        }
+
+        if (!usuario.email_verificado) {
+            return res.status(403).json({
+                mensaje: "Debes verificar tu correo antes de iniciar sesion",
+                message: "You must verify your email before logging in",
+                code: 'EMAIL_NOT_VERIFIED',
+            });
         }
 
         const token = signUserToken(usuario);
+        const { password: _, verification_token_hash: __, ...usuarioSinPassword } = usuario;
 
-        // Enviamos también los datos del usuario (excepto la contraseña)
-        const { password: _, ...usuarioSinPassword } = usuario;
-        res.json({ 
-            mensaje: "Login exitoso", 
-            message: "Login successful", 
+        return res.json({
+            mensaje: "Login exitoso",
+            message: "Login successful",
             token,
-            usuario: usuarioSinPassword
+            usuario: usuarioSinPassword,
         });
     });
+};
+
+exports.verificarEmail = async (req, res) => {
+    try {
+        const token = String(req.query?.token || '').trim();
+        if (!token) {
+            return res.status(400).json({
+                mensaje: "Token de verificacion requerido",
+                message: "Verification token is required",
+            });
+        }
+
+        const result = await verifyEmailToken('usuario', token);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: "Correo verificado correctamente",
+            message: "Email verified successfully",
+            data: result.data,
+        });
+    } catch (err) {
+        console.error('Error verificando email de usuario:', err);
+        return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
+    }
 };
 
 exports.perfil = (req, res) => {
@@ -106,6 +186,8 @@ exports.perfil = (req, res) => {
             nombre: usuario.nombre,
             email: usuario.email,
             telefono: usuario.telefono || null,
+            rol: usuario.rol || 'user',
+            email_verificado: Boolean(usuario.email_verificado),
             creado_en: usuario.creado_en,
         });
     });
@@ -128,6 +210,7 @@ exports.actualizarPerfil = (req, res) => {
             message: "Name, email and phone are required",
         });
     }
+
     if (!PHONE_REGEX.test(telefono)) {
         return res.status(400).json({
             mensaje: "Numero de telefono invalido",
@@ -142,7 +225,10 @@ exports.actualizarPerfil = (req, res) => {
         }
 
         if (emailRows && emailRows.length > 0) {
-            return res.status(400).json({ mensaje: "El correo ya esta registrado", message: "Email already registered" });
+            return res.status(400).json({
+                mensaje: "El correo ya esta registrado",
+                message: "Email already registered",
+            });
         }
 
         Usuario.actualizarPerfil(userId, nombre, email, telefono, (updateErr, result) => {
@@ -174,11 +260,17 @@ exports.cambiarPassword = (req, res) => {
     const nueva = String(req.body?.password_nueva || '');
 
     if (!actual || !nueva) {
-        return res.status(400).json({ mensaje: "Debes enviar password actual y nueva", message: "Current and new password are required" });
+        return res.status(400).json({
+            mensaje: "Debes enviar password actual y nueva",
+            message: "Current and new password are required",
+        });
     }
 
     if (nueva.length < 6) {
-        return res.status(400).json({ mensaje: "La nueva contrasena debe tener al menos 6 caracteres", message: "New password must be at least 6 characters" });
+        return res.status(400).json({
+            mensaje: "La nueva contrasena debe tener al menos 6 caracteres",
+            message: "New password must be at least 6 characters",
+        });
     }
 
     Usuario.buscarPorId(userId, (findErr, results) => {
@@ -194,7 +286,10 @@ exports.cambiarPassword = (req, res) => {
         const usuario = results[0];
         const actualValida = bcrypt.compareSync(actual, usuario.password);
         if (!actualValida) {
-            return res.status(401).json({ mensaje: "Contrasena actual incorrecta", message: "Current password is incorrect" });
+            return res.status(401).json({
+                mensaje: "Contrasena actual incorrecta",
+                message: "Current password is incorrect",
+            });
         }
 
         const nuevaHash = bcrypt.hashSync(nueva, 8);

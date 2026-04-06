@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../constants/constants.dart';
+import '../../utils/vehicle_rules.dart';
 
 class HomeAppBar extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onOpenReservations;
@@ -132,7 +133,12 @@ class HomeLoadingIndicator extends StatelessWidget {
 }
 
 class HomeEmptyState extends StatelessWidget {
-  const HomeEmptyState({super.key});
+  final String message;
+
+  const HomeEmptyState({
+    super.key,
+    this.message = 'No hay parqueaderos disponibles.',
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -145,7 +151,7 @@ class HomeEmptyState extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.border),
         ),
-        child: const Column(
+        child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
@@ -155,10 +161,135 @@ class HomeEmptyState extends StatelessWidget {
             ),
             SizedBox(height: 10),
             Text(
-              'No hay parqueaderos disponibles.',
+              message,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: AppColors.text,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class HomeVehicleFilterBar extends StatelessWidget {
+  final String? selectedType;
+  final ValueChanged<String?> onSelected;
+
+  const HomeVehicleFilterBar({
+    super.key,
+    required this.selectedType,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final options = <String?>[null, ...kVehicleTypes];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 14),
+            child: Text(
+              'Filtrar por vehiculo',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: AppColors.text,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            child: Row(
+              children: options.map((tipo) {
+                final isSelected = selectedType == tipo;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: FilterChip(
+                    selected: isSelected,
+                    label: Text(
+                      tipo == null ? 'Todos' : vehicleTypeLabel(tipo),
+                    ),
+                    avatar: Icon(
+                      tipo == null ? Icons.tune_rounded : vehicleTypeIcon(tipo),
+                      size: 18,
+                      color: isSelected ? Colors.white : AppColors.primary,
+                    ),
+                    selectedColor: AppColors.primary,
+                    checkmarkColor: Colors.white,
+                    labelStyle: TextStyle(
+                      color: isSelected ? Colors.white : AppColors.text,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    side: BorderSide(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                    ),
+                    backgroundColor: AppColors.surfaceSoft,
+                    onSelected: (_) => onSelected(tipo),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HomeFilterLoadingState extends StatelessWidget {
+  const HomeFilterLoadingState({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 28),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.96),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(color: AppColors.primary),
+            SizedBox(height: 12),
+            Text(
+              'Encontrando parqueaderos...',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
                 color: AppColors.text,
               ),
             ),

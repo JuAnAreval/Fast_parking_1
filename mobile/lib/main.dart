@@ -47,7 +47,7 @@ class ParqueaderosApp extends StatelessWidget {
 
     return MaterialApp(
       initialRoute: '/bootstrap',
-      title: 'Parqueaderos App',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       navigatorKey: appNavigatorKey,
       scaffoldMessengerKey: appScaffoldMessengerKey,

@@ -17,6 +17,28 @@ const normalizePlaca = (value) =>
 
 const normalizeColor = (value) => String(value || '').trim();
 
+const isBicicleta = (tipo) => normalizeTipoVehiculo(tipo) === 'bicicleta';
+
+const generateInternalBicyclePlate = (usuarioId) => {
+    const userPart = Number(usuarioId || 0).toString(36).toUpperCase();
+    const timePart = Date.now().toString(36).toUpperCase();
+    const randomPart = Math.floor(Math.random() * 1296)
+        .toString(36)
+        .toUpperCase()
+        .padStart(2, '0');
+    return `B${userPart}${timePart}${randomPart}`.slice(0, 15);
+};
+
+const sanitizeVehiculo = (vehiculo) => {
+    if (!vehiculo || typeof vehiculo !== 'object') return vehiculo;
+
+    const data = { ...vehiculo };
+    if (isBicicleta(data.tipo)) {
+        data.placa = '';
+    }
+    return data;
+};
+
 exports.getVehiculosMios = (req, res) => {
     const usuarioId = toPositiveInt(req.auth?.actorId);
     if (!usuarioId) {
@@ -40,7 +62,7 @@ exports.getVehiculosMios = (req, res) => {
                 }
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
-            return res.json(results || []);
+            return res.json((results || []).map(sanitizeVehiculo));
         },
     );
 };
@@ -58,15 +80,18 @@ exports.crearVehiculo = (req, res) => {
     if (!TIPOS_VEHICULO.has(tipo)) {
         return res.status(400).json({ mensaje: 'Tipo de vehiculo invalido', message: 'Invalid vehicle type' });
     }
-    if (!placa) {
+    if (!isBicicleta(tipo) && !placa) {
         return res.status(400).json({ mensaje: 'La placa es requerida', message: 'Plate is required' });
     }
     if (!color) {
         return res.status(400).json({ mensaje: 'El color es requerido', message: 'Color is required' });
     }
 
+    const storedPlaca = isBicicleta(tipo)
+        ? generateInternalBicyclePlate(usuarioId)
+        : placa;
     const sql = 'INSERT INTO vehiculos (usuario_id, tipo, placa, color) VALUES (?, ?, ?, ?)';
-    db.query(sql, [usuarioId, tipo, placa, color], (err, result) => {
+    db.query(sql, [usuarioId, tipo, storedPlaca, color], (err, result) => {
         if (err) {
             console.error('Error al crear vehiculo:', err);
             if (err.code === 'ER_NO_SUCH_TABLE') {
@@ -84,13 +109,13 @@ exports.crearVehiculo = (req, res) => {
         return res.status(201).json({
             mensaje: 'Vehiculo creado',
             message: 'Vehicle created',
-            vehiculo: {
+            vehiculo: sanitizeVehiculo({
                 id: result.insertId,
                 usuario_id: usuarioId,
                 tipo,
-                placa,
+                placa: storedPlaca,
                 color,
-            },
+            }),
         });
     });
 };
@@ -112,19 +137,22 @@ exports.actualizarVehiculo = (req, res) => {
     if (!TIPOS_VEHICULO.has(tipo)) {
         return res.status(400).json({ mensaje: 'Tipo de vehiculo invalido', message: 'Invalid vehicle type' });
     }
-    if (!placa) {
+    if (!isBicicleta(tipo) && !placa) {
         return res.status(400).json({ mensaje: 'La placa es requerida', message: 'Plate is required' });
     }
     if (!color) {
         return res.status(400).json({ mensaje: 'El color es requerido', message: 'Color is required' });
     }
 
+    const storedPlaca = isBicicleta(tipo)
+        ? generateInternalBicyclePlate(usuarioId)
+        : placa;
     const sql = `
         UPDATE vehiculos
         SET tipo = ?, placa = ?, color = ?
         WHERE id = ? AND usuario_id = ?
     `;
-    db.query(sql, [tipo, placa, color, vehiculoId, usuarioId], (err, result) => {
+    db.query(sql, [tipo, storedPlaca, color, vehiculoId, usuarioId], (err, result) => {
         if (err) {
             console.error('Error al actualizar vehiculo:', err);
             if (err.code === 'ER_NO_SUCH_TABLE') {
@@ -145,7 +173,13 @@ exports.actualizarVehiculo = (req, res) => {
         return res.json({
             mensaje: 'Vehiculo actualizado',
             message: 'Vehicle updated',
-            vehiculo: { id: vehiculoId, usuario_id: usuarioId, tipo, placa, color },
+            vehiculo: sanitizeVehiculo({
+                id: vehiculoId,
+                usuario_id: usuarioId,
+                tipo,
+                placa: storedPlaca,
+                color,
+            }),
         });
     });
 };

@@ -2,6 +2,8 @@ const request = require('supertest');
 const app = require('../server');
 const db = require('../config/db');
 
+jest.setTimeout(20000);
+
 describe('Reserva endpoints', () => {
     let userToken, parqueaderoToken, parqueaderoId, reservaId, userId;
 
@@ -9,6 +11,19 @@ describe('Reserva endpoints', () => {
         // Usar usuario existente juan@gmail.com
         const userEmail = 'juan@gmail.com';
         const userPassword = '123456';
+
+        await new Promise((resolve, reject) => {
+            db.query(
+                `
+                    UPDATE usuarios
+                    SET email_verificado = 1,
+                        email_verificado_en = NOW()
+                    WHERE email = ?
+                `,
+                [userEmail],
+                (err, result) => (err ? reject(err) : resolve(result)),
+            );
+        });
 
         // Login usuario existente
         const loginRes = await request(app)
@@ -38,6 +53,8 @@ describe('Reserva endpoints', () => {
             });
 
         parqueaderoId = parqueaderoRes.body.id;
+
+        await request(app).get(`/api/parqueaderos/verify-email?token=${parqueaderoRes.body.verification_preview_token}`);
 
         const parqueaderoLoginRes = await request(app)
             .post('/api/parqueaderos/login')

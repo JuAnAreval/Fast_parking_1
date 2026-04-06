@@ -117,6 +117,35 @@ const isTelefonoColumnError = (err) =>
     err.code === 'ER_BAD_FIELD_ERROR' &&
     /telefono/i.test(String(err.sqlMessage || err.message || ''));
 
+const sanitizeVehiculoPlaca = (tipo, placa) => {
+    if (String(tipo || '').toLowerCase() === 'bicicleta') {
+        return '';
+    }
+    return placa || null;
+};
+
+const sanitizeVehiculoRecord = (vehiculo) => {
+    if (!vehiculo || typeof vehiculo !== 'object') return vehiculo;
+
+    return {
+        ...vehiculo,
+        placa: sanitizeVehiculoPlaca(vehiculo.tipo, vehiculo.placa),
+    };
+};
+
+const sanitizeReservaVehiculoData = (reserva) => {
+    if (!reserva || typeof reserva !== 'object') return reserva;
+
+    const data = { ...reserva };
+    if ('vehiculo_placa' in data) {
+        data.vehiculo_placa = sanitizeVehiculoPlaca(
+            data.vehiculo_tipo || data.tipo_vehiculo,
+            data.vehiculo_placa,
+        );
+    }
+    return data;
+};
+
 const getVehiculoUsuario = (usuarioId, vehiculoId, callback) => {
     db.query(
         `
@@ -131,7 +160,7 @@ const getVehiculoUsuario = (usuarioId, vehiculoId, callback) => {
             if (!results || results.length === 0) {
                 return callback(null, null);
             }
-            return callback(null, results[0]);
+            return callback(null, sanitizeVehiculoRecord(results[0]));
         },
     );
 };
@@ -313,7 +342,7 @@ exports.getReservasUsuario = (req, res) => {
             console.error('Error al obtener reservas:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
         }
-        return res.json(results);
+        return res.json((results || []).map(sanitizeReservaVehiculoData));
     });
 };
 
@@ -1119,7 +1148,7 @@ exports.getReservasParqueadero = (req, res) => {
             console.error('Error al obtener reservas del parqueadero:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
         }
-        return res.json(results);
+        return res.json((results || []).map(sanitizeReservaVehiculoData));
     });
 };
 

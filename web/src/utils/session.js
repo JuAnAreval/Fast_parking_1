@@ -1,6 +1,14 @@
-const TOKEN_KEY = "token";
-const PARQUEADERO_KEY = "parqueadero";
-const USUARIO_KEY = "usuario";
+const SESSION_ACTOR_KEY = "fast_parking_session_actor";
+const TOKEN_KEYS = {
+  parqueadero: "fast_parking_token_parqueadero",
+  admin: "fast_parking_token_admin",
+  usuario: "fast_parking_token_usuario",
+};
+const DATA_KEYS = {
+  parqueadero: "fast_parking_parqueadero",
+  admin: "fast_parking_admin",
+  usuario: "fast_parking_usuario",
+};
 
 const safeParseJson = (value) => {
   if (!value) return null;
@@ -11,38 +19,71 @@ const safeParseJson = (value) => {
   }
 };
 
-export const getToken = () => localStorage.getItem(TOKEN_KEY);
+const setSessionActor = (actor) => {
+  if (actor) {
+    localStorage.setItem(SESSION_ACTOR_KEY, actor);
+    return;
+  }
+  localStorage.removeItem(SESSION_ACTOR_KEY);
+};
+
+export const getSessionActor = () => localStorage.getItem(SESSION_ACTOR_KEY);
+
+export const getToken = (actor = getSessionActor()) => {
+  if (!actor || !TOKEN_KEYS[actor]) return null;
+  return localStorage.getItem(TOKEN_KEYS[actor]);
+};
 
 export const getParqueaderoSession = () =>
-  safeParseJson(localStorage.getItem(PARQUEADERO_KEY));
+  safeParseJson(localStorage.getItem(DATA_KEYS.parqueadero));
+
+export const getAdminSession = () =>
+  safeParseJson(localStorage.getItem(DATA_KEYS.admin));
 
 export const getUsuarioSession = () =>
-  safeParseJson(localStorage.getItem(USUARIO_KEY));
+  safeParseJson(localStorage.getItem(DATA_KEYS.usuario));
 
 export const setParqueaderoSession = ({ token, parqueadero }) => {
+  clearSession();
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_KEYS.parqueadero, token);
   }
   if (parqueadero) {
-    localStorage.setItem(PARQUEADERO_KEY, JSON.stringify(parqueadero));
+    localStorage.setItem(DATA_KEYS.parqueadero, JSON.stringify(parqueadero));
   }
+  setSessionActor("parqueadero");
+};
+
+export const setAdminSession = ({ token, admin }) => {
+  clearSession();
+  if (token) {
+    localStorage.setItem(TOKEN_KEYS.admin, token);
+  }
+  if (admin) {
+    localStorage.setItem(DATA_KEYS.admin, JSON.stringify(admin));
+  }
+  setSessionActor("admin");
 };
 
 export const setUsuarioSession = ({ token, usuario }) => {
+  clearSession();
   if (token) {
-    localStorage.setItem(TOKEN_KEY, token);
+    localStorage.setItem(TOKEN_KEYS.usuario, token);
   }
   if (usuario) {
-    localStorage.setItem(USUARIO_KEY, JSON.stringify(usuario));
+    localStorage.setItem(DATA_KEYS.usuario, JSON.stringify(usuario));
   }
+  setSessionActor("usuario");
 };
 
 export const clearSession = () => {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(PARQUEADERO_KEY);
-  localStorage.removeItem(USUARIO_KEY);
+  Object.values(TOKEN_KEYS).forEach((key) => localStorage.removeItem(key));
+  Object.values(DATA_KEYS).forEach((key) => localStorage.removeItem(key));
+  localStorage.removeItem(SESSION_ACTOR_KEY);
 };
 
 export const isParqueaderoAuthenticated = () =>
-  Boolean(getToken() && getParqueaderoSession()?.id);
+  getSessionActor() === "parqueadero" && Boolean(getToken("parqueadero") && getParqueaderoSession()?.id);
 
+export const isAdminAuthenticated = () =>
+  getSessionActor() === "admin" && Boolean(getToken("admin") && getAdminSession()?.id);

@@ -1,16 +1,36 @@
-# usuarios
+# Fast Parking Mobile
 
-A new Flutter project.
+Aplicacion Flutter para usuarios finales de Fast Parking.
 
-## Getting Started
+## Estado actual
 
-This project is a starting point for a Flutter application.
+- API configurada en produccion mediante [api_url.dart](/C:/Users/juand/Documents/parqueaderos/mobile/lib/constants/api_url.dart)
+- Sesion persistente con `SharedPreferences`
+- Login, registro, reservas, mapa, perfil y gestion de vehiculos
 
-A few resources to get you started if this is your first Flutter project:
+## Checklist antes de compartir por QR
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+1. Confirma que `ApiEnvironment.production` siga activo.
+2. Ejecuta `flutter analyze`.
+3. Ejecuta `flutter test`.
+4. Genera el APK o AAB final.
+5. Instala el build en al menos un Android fisico y valida:
+   - login
+   - registro
+   - carga del mapa
+   - crear reserva
+   - ver reservas
+   - cerrar sesion y restaurar sesion
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Comandos utiles
+
+```bash
+flutter pub get
+flutter analyze
+flutter test
+flutter build apk --release
+```
+
+## Nota de release
+
+En Android el proyecto sigue firmando `release` con la configuracion `debug` por defecto en [build.gradle.kts](/C:/Users/juand/Documents/parqueaderos/mobile/android/app/build.gradle.kts). Eso sirve para pruebas y distribucion interna, pero para una publicacion formal conviene configurar tu keystore propia.

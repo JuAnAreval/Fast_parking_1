@@ -8,6 +8,7 @@ const INTERNAL_API_KEY = String(process.env.INTERNAL_API_KEY || process.env.CRON
 const ACTOR_TYPES = Object.freeze({
     USUARIO: 'usuario',
     PARQUEADERO: 'parqueadero',
+    ADMIN: 'admin',
 });
 
 const toPositiveInt = (value) => {
@@ -18,7 +19,11 @@ const toPositiveInt = (value) => {
 
 const normalizeActorType = (decoded) => {
     const value = String(decoded?.actorType || decoded?.type || '').trim().toLowerCase();
-    if (value === ACTOR_TYPES.USUARIO || value === ACTOR_TYPES.PARQUEADERO) {
+    if (
+        value === ACTOR_TYPES.USUARIO ||
+        value === ACTOR_TYPES.PARQUEADERO ||
+        value === ACTOR_TYPES.ADMIN
+    ) {
         return value;
     }
     return null;
@@ -93,7 +98,12 @@ const requireAuth = (allowedActorTypes = null) => (req, res, next) => {
 
 const requireUserAuth = requireAuth([ACTOR_TYPES.USUARIO]);
 const requireParqueaderoAuth = requireAuth([ACTOR_TYPES.PARQUEADERO]);
-const requireAnyAuth = requireAuth([ACTOR_TYPES.USUARIO, ACTOR_TYPES.PARQUEADERO]);
+const requireAdminAuth = requireAuth([ACTOR_TYPES.ADMIN]);
+const requireAnyAuth = requireAuth([
+    ACTOR_TYPES.USUARIO,
+    ACTOR_TYPES.PARQUEADERO,
+    ACTOR_TYPES.ADMIN,
+]);
 
 const requireRouteActorId = (paramName, actorType) => (req, res, next) => {
     const routeId = toPositiveInt(req.params?.[paramName]);
@@ -154,16 +164,30 @@ const signParqueaderoToken = (parqueadero) =>
         { expiresIn: PARQUEADERO_JWT_EXPIRES_IN },
     );
 
+const signAdminToken = (usuario) =>
+    jwt.sign(
+        {
+            id: usuario.id,
+            email: usuario.email,
+            role: usuario.rol || 'admin',
+            actorType: ACTOR_TYPES.ADMIN,
+        },
+        SECRET_KEY,
+        { expiresIn: USER_JWT_EXPIRES_IN },
+    );
+
 module.exports = {
     ACTOR_TYPES,
     authenticateOptional,
     extractBearerToken,
+    requireAdminAuth,
     requireAnyAuth,
     requireInternalApiKey,
     requireParqueaderoAuth,
     requireSameParqueaderoParam,
     requireSameUserParam,
     requireUserAuth,
+    signAdminToken,
     signParqueaderoToken,
     signUserToken,
     verifyAccessToken,

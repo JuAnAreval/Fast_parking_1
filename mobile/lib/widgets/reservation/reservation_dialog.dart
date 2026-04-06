@@ -2,8 +2,18 @@ import 'package:flutter/material.dart';
 
 import '../../constants/constants.dart';
 import '../../services/api_service.dart';
+import '../../utils/vehicle_rules.dart';
 
-/// Dialogo para crear una reserva
+class ReservationDialogResult {
+  final String? unsupportedVehicleType;
+
+  const ReservationDialogResult._({this.unsupportedVehicleType});
+
+  const ReservationDialogResult.unsupportedVehicleType(String type)
+    : this._(unsupportedVehicleType: type);
+}
+
+/// Dialogo para crear una reserva.
 class ReservationDialog extends StatefulWidget {
   final Map<String, dynamic> parqueadero;
   final List<Map<String, dynamic>> tarifas;
@@ -21,14 +31,6 @@ class ReservationDialog extends StatefulWidget {
 }
 
 class _ReservationDialogState extends State<ReservationDialog> {
-  static const List<String> _allVehicleTypes = <String>[
-    'carro',
-    'moto',
-    'bicicleta',
-    'camion',
-    'ambulancia',
-  ];
-
   String? selectedVehicleType;
   int? selectedVehiculoId;
   String observations = '';
@@ -37,8 +39,9 @@ class _ReservationDialogState extends State<ReservationDialog> {
   bool isLoadingVehiculos = true;
   bool isCreatingVehiculo = false;
   bool showCreateVehiculo = false;
+  bool _placaTouched = false;
 
-  String nuevoVehiculoTipo = 'carro';
+  String nuevoVehiculoTipo = kVehicleTypes.first;
   final TextEditingController placaController = TextEditingController();
   final TextEditingController colorController = TextEditingController();
 
@@ -47,13 +50,43 @@ class _ReservationDialogState extends State<ReservationDialog> {
   List<Map<String, dynamic>> get _tarifasDisponibles =>
       widget.tarifas.where(_isTarifaConfigurada).toList();
 
+  Set<String> get _tiposPermitidos => _tarifasDisponibles
+      .map(
+        (tarifa) => normalizeVehicleType(tarifa['tipo_vehiculo']?.toString()),
+      )
+      .where((tipo) => tipo.isNotEmpty)
+      .toSet();
+
+  bool get _requiresPlate => vehicleTypeRequiresPlate(nuevoVehiculoTipo);
+
+  String get _normalizedPlate => normalizeVehiclePlate(placaController.text);
+
+  String? get _plateError => vehiclePlateError(
+    nuevoVehiculoTipo,
+    placaController.text,
+    touched: _placaTouched,
+  );
+
+  bool get _canSaveVehicle {
+    final color = colorController.text.trim();
+    if (color.isEmpty || isCreatingVehiculo) {
+      return false;
+    }
+
+    if (!_requiresPlate) {
+      return true;
+    }
+
+    return _normalizedPlate.isNotEmpty && _plateError == null;
+  }
+
   @override
   void initState() {
     super.initState();
     if (_tarifasDisponibles.isNotEmpty) {
       selectedVehicleType = _tarifasDisponibles.first['tipo_vehiculo']
           ?.toString();
-      nuevoVehiculoTipo = selectedVehicleType ?? 'carro';
+      nuevoVehiculoTipo = normalizeVehicleType(selectedVehicleType);
     }
     _loadVehiculos();
   }
@@ -92,9 +125,9 @@ class _ReservationDialogState extends State<ReservationDialog> {
         selectedVehiculo ??= vehiculos.first;
 
         selectedVehiculoId = _asInt(selectedVehiculo['id']);
-        selectedVehicleType = selectedVehiculo['tipo']
-            ?.toString()
-            .toLowerCase();
+        selectedVehicleType = normalizeVehicleType(
+          selectedVehiculo['tipo']?.toString(),
+        );
         showCreateVehiculo = false;
       } else {
         selectedVehiculoId = null;
@@ -118,32 +151,38 @@ class _ReservationDialogState extends State<ReservationDialog> {
   }
 
   String _vehiculoLabel(Map<String, dynamic> vehiculo) {
-    final placa = vehiculo['placa']?.toString().toUpperCase() ?? 'SIN-PLACA';
+    final plate = vehicleDisplayPlate(
+      vehiculo['tipo']?.toString(),
+      vehiculo['placa']?.toString(),
+    );
     final color = vehiculo['color']?.toString() ?? 'Sin color';
-    final tipo = vehiculo['tipo']?.toString().toUpperCase() ?? 'N/A';
-    return '$placa - $color ($tipo)';
+    final tipo = vehicleTypeLabel(vehiculo['tipo']?.toString()).toUpperCase();
+    return '$plate - $color ($tipo)';
   }
 
   Future<void> _crearVehiculo() async {
-    if (isCreatingVehiculo) return;
-
-    final placa = placaController.text.trim().toUpperCase().replaceAll(' ', '');
-    final color = colorController.text.trim();
-
-    if (placa.isEmpty || color.isEmpty) {
+    if (!_canSaveVehicle) {
+      setState(() => _placaTouched = true);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debes completar placa y color del vehiculo.'),
+        SnackBar(
+          content: Text(
+            _requiresPlate
+                ? (_plateError ?? 'Debes completar placa y color del vehiculo.')
+                : 'Debes completar el color de la bicicleta.',
+          ),
           backgroundColor: Colors.red,
         ),
       );
       return;
     }
 
+    final placa = _normalizedPlate;
+    final color = colorController.text.trim();
+
     setState(() => isCreatingVehiculo = true);
     final result = await ApiService.crearVehiculo({
       'tipo': nuevoVehiculoTipo,
-      'placa': placa,
+      'placa': vehiclePlatePayload(nuevoVehiculoTipo, placa),
       'color': color,
     });
     if (!mounted) return;
@@ -158,6 +197,7 @@ class _ReservationDialogState extends State<ReservationDialog> {
 
       placaController.clear();
       colorController.clear();
+      _placaTouched = false;
       showCreateVehiculo = false;
       await _loadVehiculos(preferredVehicleId: createdId);
       if (!mounted) return;
@@ -165,7 +205,7 @@ class _ReservationDialogState extends State<ReservationDialog> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vehiculo guardado correctamente.'),
+          content: Text('Vehiculo guardado correctamente. Ya puedes reservar.'),
           backgroundColor: Colors.green,
         ),
       );
@@ -182,12 +222,17 @@ class _ReservationDialogState extends State<ReservationDialog> {
   }
 
   void _submitReservation() async {
-    if (isReserved || isSubmitting || selectedVehicleType == null) return;
+    if (isReserved ||
+        isSubmitting ||
+        selectedVehicleType == null ||
+        selectedVehicleType!.isEmpty) {
+      return;
+    }
     if (vehiculos.isEmpty || selectedVehiculoId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Debes registrar y seleccionar un vehiculo antes de reservar.',
+            'Primero guarda un vehiculo para poder continuar con la reserva.',
           ),
           backgroundColor: Colors.red,
         ),
@@ -195,22 +240,11 @@ class _ReservationDialogState extends State<ReservationDialog> {
       return;
     }
 
-    final tiposPermitidos = _tarifasDisponibles
-        .map(
-          (tarifa) => tarifa['tipo_vehiculo']?.toString().toLowerCase() ?? '',
-        )
-        .where((tipo) => tipo.isNotEmpty)
-        .toSet();
-
-    if (tiposPermitidos.isNotEmpty &&
-        !tiposPermitidos.contains(selectedVehicleType)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Este parqueadero no tiene tarifa para ${selectedVehicleType?.toUpperCase()}.',
-          ),
-          backgroundColor: Colors.red,
-        ),
+    if (_tiposPermitidos.isNotEmpty &&
+        !_tiposPermitidos.contains(selectedVehicleType)) {
+      Navigator.pop(
+        context,
+        ReservationDialogResult.unsupportedVehicleType(selectedVehicleType!),
       );
       return;
     }
@@ -261,6 +295,7 @@ class _ReservationDialogState extends State<ReservationDialog> {
     return SingleChildScrollView(
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (tarifasDisponibles.isEmpty)
             const Text('No hay tarifas configuradas para este parqueadero')
@@ -268,11 +303,23 @@ class _ReservationDialogState extends State<ReservationDialog> {
             if (isLoadingVehiculos)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: CircularProgressIndicator(),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            if (!isLoadingVehiculos && vehiculos.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  'Primero guarda un vehiculo para continuar.',
+                  style: TextStyle(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             if (!isLoadingVehiculos && vehiculos.isNotEmpty)
               DropdownButtonFormField<int>(
-                value: selectedVehiculoId,
+                key: ValueKey<int?>(selectedVehiculoId),
+                initialValue: selectedVehiculoId,
                 decoration: const InputDecoration(
                   labelText: 'Vehiculo registrado',
                   border: OutlineInputBorder(),
@@ -299,27 +346,11 @@ class _ReservationDialogState extends State<ReservationDialog> {
                   );
                   setState(() {
                     selectedVehiculoId = value;
-                    selectedVehicleType = selected['tipo']
-                        ?.toString()
-                        .toLowerCase();
+                    selectedVehicleType = normalizeVehicleType(
+                      selected['tipo']?.toString(),
+                    );
                   });
                 },
-              ),
-            if (!isLoadingVehiculos && vehiculos.isEmpty)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.warning.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: AppColors.warning.withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Text(
-                  'No tienes vehiculos registrados. Registra uno para continuar.',
-                  style: TextStyle(color: AppColors.textSecondary),
-                ),
               ),
             const SizedBox(height: 8),
             Align(
@@ -331,13 +362,15 @@ class _ReservationDialogState extends State<ReservationDialog> {
                 label: Text(
                   showCreateVehiculo
                       ? 'Ocultar registro de vehiculo'
-                      : 'Registrar vehiculo',
+                      : vehiculos.isEmpty
+                      ? 'Registrar mi primer vehiculo'
+                      : 'Registrar otro vehiculo',
                 ),
               ),
             ),
             if (showCreateVehiculo) _buildVehiculoForm(),
           ],
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           TextField(
             decoration: const InputDecoration(
               labelText: 'Observaciones',
@@ -353,23 +386,25 @@ class _ReservationDialogState extends State<ReservationDialog> {
   }
 
   Widget _buildVehiculoForm() {
-    final tipos = _allVehicleTypes.toList();
+    final tipos = kVehicleTypes.toList();
     if (!tipos.contains(nuevoVehiculoTipo)) {
       nuevoVehiculoTipo = tipos.first;
     }
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.surfaceSoft,
         border: Border.all(color: AppColors.border),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DropdownButtonFormField<String>(
-            value: nuevoVehiculoTipo,
+            key: ValueKey<String>('nuevo-$nuevoVehiculoTipo'),
+            initialValue: nuevoVehiculoTipo,
             decoration: const InputDecoration(
               labelText: 'Tipo',
               border: OutlineInputBorder(),
@@ -378,25 +413,67 @@ class _ReservationDialogState extends State<ReservationDialog> {
                 .map(
                   (tipo) => DropdownMenuItem<String>(
                     value: tipo,
-                    child: Text(tipo.toUpperCase()),
+                    child: Text(vehicleTypeLabel(tipo).toUpperCase()),
                   ),
                 )
                 .toList(),
             onChanged: (value) {
               if (value == null) return;
-              setState(() => nuevoVehiculoTipo = value);
+              setState(() {
+                nuevoVehiculoTipo = value;
+                if (!vehicleTypeRequiresPlate(value)) {
+                  placaController.clear();
+                  _placaTouched = false;
+                }
+              });
             },
           ),
           const SizedBox(height: 10),
-          TextField(
-            controller: placaController,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-              labelText: 'Placa',
-              border: OutlineInputBorder(),
-              hintText: 'Ej: ABC123',
+          if (_requiresPlate)
+            TextField(
+              controller: placaController,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: vehiclePlateInputFormatters(),
+              decoration: InputDecoration(
+                labelText: 'Placa',
+                border: const OutlineInputBorder(),
+                hintText: vehiclePlateHint(nuevoVehiculoTipo),
+                helperText:
+                    'Formato esperado: ${vehiclePlateHint(nuevoVehiculoTipo)}',
+                errorText: _plateError,
+              ),
+              onChanged: (_) {
+                if (!_placaTouched) {
+                  setState(() => _placaTouched = true);
+                  return;
+                }
+                setState(() {});
+              },
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.accent.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.2),
+                ),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.pedal_bike_rounded, color: AppColors.primary),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Las bicicletas se guardan sin placa.',
+                      style: TextStyle(color: AppColors.text),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 10),
           TextField(
             controller: colorController,
@@ -405,19 +482,27 @@ class _ReservationDialogState extends State<ReservationDialog> {
               border: OutlineInputBorder(),
               hintText: 'Ej: Rojo',
             ),
+            onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: isCreatingVehiculo ? null : _crearVehiculo,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+              ),
               icon: isCreatingVehiculo
                   ? const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Icon(Icons.save),
+                  : const Icon(Icons.save_rounded),
               label: Text(
                 isCreatingVehiculo ? 'Guardando...' : 'Guardar vehiculo',
               ),
@@ -483,7 +568,9 @@ class _ReservationDialogState extends State<ReservationDialog> {
       ),
       ElevatedButton(
         onPressed:
-            (selectedVehicleType != null &&
+            (_tarifasDisponibles.isNotEmpty &&
+                selectedVehicleType != null &&
+                selectedVehicleType!.isNotEmpty &&
                 selectedVehiculoId != null &&
                 vehiculos.isNotEmpty &&
                 !isSubmitting &&
@@ -492,6 +579,7 @@ class _ReservationDialogState extends State<ReservationDialog> {
             : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.secondary,
+          foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppConstants.borderRadiusSmall),
           ),

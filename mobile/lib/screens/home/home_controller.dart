@@ -4,9 +4,10 @@ import 'package:flutter/foundation.dart';
 
 import '../../constants/constants.dart';
 import '../../services/api_service.dart';
+import '../../utils/vehicle_rules.dart';
 
 class HomeController extends ChangeNotifier {
-  final List<dynamic> _parqueaderos = <dynamic>[];
+  final List<Map<String, dynamic>> _parqueaderos = <Map<String, dynamic>>[];
   final List<Map<String, dynamic>> _tarifas = <Map<String, dynamic>>[];
 
   Map<String, dynamic>? _selectedParqueadero;
@@ -15,9 +16,11 @@ class HomeController extends ChangeNotifier {
 
   bool _loading = true;
   bool _loadingTarifas = false;
+  bool _loadingVehicleFilter = false;
   int _tiempoRestante = 0;
   bool _disposed = false;
   bool _syncingReserva = false;
+  String? _vehicleFilter;
 
   static const int _reservaPendienteMensajeSegundos = 14 * 60;
 
@@ -25,7 +28,14 @@ class HomeController extends ChangeNotifier {
 
   VoidCallback? onReservationActivated;
 
-  List<dynamic> get parqueaderos => List<dynamic>.unmodifiable(_parqueaderos);
+  List<Map<String, dynamic>> get parqueaderos =>
+      List<Map<String, dynamic>>.unmodifiable(_parqueaderos);
+  List<Map<String, dynamic>> get filteredParqueaderos =>
+      List<Map<String, dynamic>>.unmodifiable(
+        _parqueaderos
+            .where((parqueadero) => _supportsVehicleFilter(parqueadero))
+            .toList(),
+      );
   List<Map<String, dynamic>> get tarifas =>
       List<Map<String, dynamic>>.unmodifiable(_tarifas);
   Map<String, dynamic>? get selectedParqueadero => _selectedParqueadero;
@@ -33,8 +43,10 @@ class HomeController extends ChangeNotifier {
   Map<String, dynamic>? get reservaCompletada => _reservaCompletada;
   bool get loading => _loading;
   bool get loadingTarifas => _loadingTarifas;
+  bool get loadingVehicleFilter => _loadingVehicleFilter;
   int get tiempoRestante => _tiempoRestante;
   bool get hasReservaActiva => _reservaActiva != null;
+  String? get vehicleFilter => _vehicleFilter;
 
   Future<void> initialize() async {
     await loadParqueaderos();
@@ -63,9 +75,20 @@ class HomeController extends ChangeNotifier {
     if (result['success'] == true && result['data'] is List) {
       _parqueaderos
         ..clear()
-        ..addAll(result['data'] as List);
+        ..addAll(
+          (result['data'] as List)
+              .whereType<Map>()
+              .map((item) => _normalizeParqueadero(item))
+              .toList(),
+        );
     } else {
       _parqueaderos.clear();
+    }
+
+    if (_selectedParqueadero != null &&
+        !_supportsVehicleFilter(_selectedParqueadero!)) {
+      _selectedParqueadero = null;
+      _tarifas.clear();
     }
 
     _loading = false;
@@ -204,6 +227,29 @@ class HomeController extends ChangeNotifier {
     _notify();
   }
 
+  Future<void> setVehicleFilter(String? tipo) async {
+    final normalized = normalizeVehicleType(tipo);
+    final nextFilter = normalized.isEmpty ? null : normalized;
+    if (_vehicleFilter == nextFilter) return;
+
+    _vehicleFilter = nextFilter;
+    _loadingVehicleFilter = nextFilter != null;
+    _notify();
+
+    if (nextFilter != null) {
+      await _ensureVehicleTypesLoaded();
+      if (_disposed) return;
+    }
+
+    _loadingVehicleFilter = false;
+    if (_selectedParqueadero != null &&
+        !_supportsVehicleFilter(_selectedParqueadero!)) {
+      _selectedParqueadero = null;
+      _tarifas.clear();
+    }
+    _notify();
+  }
+
   Future<Map<String, dynamic>> crearReserva(
     Map<String, dynamic> reservaData,
   ) async {
@@ -308,6 +354,94 @@ class HomeController extends ChangeNotifier {
 
     final tarifaHora = _asDouble(tarifa['tarifa_hora']);
     return tarifaHora > 0;
+  }
+
+  Map<String, dynamic> _normalizeParqueadero(Map raw) {
+    final parqueadero = Map<String, dynamic>.from(raw);
+    final tipos = parqueadero['tipos_vehiculo_habilitados'];
+
+    parqueadero['tipos_vehiculo_habilitados'] = switch (tipos) {
+      List<dynamic> values =>
+        values
+            .map((item) => normalizeVehicleType(item?.toString()))
+            .where((item) => item.isNotEmpty)
+            .toSet()
+            .toList(),
+      String value =>
+        value
+            .split(',')
+            .map(normalizeVehicleType)
+            .where((item) => item.isNotEmpty)
+            .toSet()
+            .toList(),
+      _ => <String>[],
+    };
+
+    return parqueadero;
+  }
+
+  bool _supportsVehicleFilter(Map<String, dynamic> parqueadero) {
+    final filter = normalizeVehicleType(_vehicleFilter);
+    if (filter.isEmpty) return true;
+    if (_loadingVehicleFilter) return true;
+
+    final tipos =
+        (parqueadero['tipos_vehiculo_habilitados'] as List<dynamic>? ??
+                const <dynamic>[])
+            .map((item) => normalizeVehicleType(item?.toString()))
+            .where((item) => item.isNotEmpty)
+            .toSet();
+    return tipos.contains(filter);
+  }
+
+  Future<void> _ensureVehicleTypesLoaded() async {
+    final candidates = _parqueaderos
+        .where((parqueadero) {
+          final tipos =
+              parqueadero['tipos_vehiculo_habilitados'] as List<dynamic>? ??
+              const <dynamic>[];
+          return tipos.isEmpty;
+        })
+        .map((parqueadero) => Map<String, dynamic>.from(parqueadero))
+        .toList();
+
+    for (final parqueadero in candidates) {
+      if (_disposed) return;
+
+      final parqueaderoId = _asInt(parqueadero['id']);
+      if (parqueaderoId == null) continue;
+
+      final result = await ApiService.getTarifas(parqueaderoId);
+      if (_disposed) return;
+
+      if (result['success'] != true || result['data'] is! List) {
+        continue;
+      }
+
+      final tipos = <String>{};
+      for (final item in result['data'] as List) {
+        if (item is! Map) continue;
+        final tarifa = Map<String, dynamic>.from(item);
+        if (_isTarifaConfigurada(tarifa)) {
+          final tipo = normalizeVehicleType(
+            tarifa['tipo_vehiculo']?.toString(),
+          );
+          if (tipo.isNotEmpty) {
+            tipos.add(tipo);
+          }
+        }
+      }
+
+      final index = _parqueaderos.indexWhere(
+        (item) => _asInt(item['id']) == parqueaderoId,
+      );
+      if (index >= 0) {
+        _parqueaderos[index] = {
+          ..._parqueaderos[index],
+          'tipos_vehiculo_habilitados': tipos.toList(),
+        };
+      }
+    }
   }
 
   void _notify() {

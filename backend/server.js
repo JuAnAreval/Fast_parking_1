@@ -2,10 +2,11 @@ const express = require("express");
 const dotenv = require("dotenv");
 const os = require("os");
 
-// Cargar variables de entorno antes de requerir rutas/controladores
 dotenv.config();
 
 const cors = require("cors");
+const { ensureApplicationSchema } = require("./config/schemaSetup");
+const adminRoutes = require("./routes/adminRoutes");
 const authRoutes = require("./routes/authRoutes");
 const parqueaderoRoutes = require("./routes/parqueaderoRoutes");
 const reservasRoutes = require("./routes/reservasRoutes");
@@ -28,30 +29,35 @@ function getLocalIPv4Addresses() {
 
     return [...new Set(addresses)];
 }
+
 app.use(express.json());
-// Habilitar CORS para que el mobile/web puedan hacer peticiones al backend
 app.use(cors());
 
-// Simple request logger
-app.use((req, res, next) => {
+app.use((req, _res, next) => {
     console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
     next();
 });
 
-// Health endpoint para verificar que el servidor está arriba
-app.get('/', (req, res) => res.json({ status: 'ok', message: 'Backend up' }));
-app.get('/health', (req, res) => res.json({ status: 'ok', message: 'Healthy' }));
+const schemaReady = ensureApplicationSchema();
 
-// Rutas
+app.use(async (_req, _res, next) => {
+    await schemaReady;
+    next();
+});
+
+app.get("/", (_req, res) => res.json({ status: "ok", message: "Backend up" }));
+app.get("/health", (_req, res) => res.json({ status: "ok", message: "Healthy" }));
+
+app.use("/api/admin", adminRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/parqueaderos", parqueaderoRoutes);
 app.use("/api/reservas", reservasRoutes);
 app.use("/api/vehiculos", vehiculosRoutes);
 
-if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, '0.0.0.0', () => {
-        console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-        console.log('📱 URLs de acceso:');
+if (process.env.NODE_ENV !== "test") {
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Servidor corriendo en puerto ${PORT}`);
+        console.log("URLs de acceso:");
         console.log(`   Local: http://localhost:${PORT}`);
         console.log(`   Emulador Android: http://10.0.2.2:${PORT}`);
         const localIps = getLocalIPv4Addresses();
@@ -60,7 +66,7 @@ if (process.env.NODE_ENV !== 'test') {
                 console.log(`   Red local: http://${ip}:${PORT}`);
             });
         } else {
-            console.log('   Red local: no se detecto una IPv4 disponible');
+            console.log("   Red local: no se detecto una IPv4 disponible");
         }
         console.log(`   Android USB (adb reverse): http://127.0.0.1:${PORT}`);
     });

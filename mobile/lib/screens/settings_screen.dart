@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../constants/constants.dart';
 import '../services/api_service.dart';
+import '../utils/vehicle_rules.dart';
 
 class SettingsScreen extends StatefulWidget {
   final Future<void> Function()? onLogout;
@@ -13,14 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const List<String> _vehicleTypes = <String>[
-    'carro',
-    'moto',
-    'bicicleta',
-    'camion',
-    'ambulancia',
-  ];
-
   final _nombreController = TextEditingController();
   final _emailController = TextEditingController();
   final _telefonoController = TextEditingController();
@@ -189,17 +183,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
       text: (vehiculo?['color'] ?? '').toString(),
     );
 
-    String tipo = (vehiculo?['tipo'] ?? 'carro').toString().toLowerCase();
-    if (!_vehicleTypes.contains(tipo)) {
-      tipo = _vehicleTypes.first;
+    String tipo = normalizeVehicleType(
+      (vehiculo?['tipo'] ?? 'carro').toString(),
+    );
+    if (!kVehicleTypes.contains(tipo)) {
+      tipo = kVehicleTypes.first;
     }
 
     bool saving = false;
+    bool placaTouched = false;
     bool? saved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final requiresPlate = vehicleTypeRequiresPlate(tipo);
+            final placaError = vehiclePlateError(
+              tipo,
+              placaController.text,
+              touched: placaTouched,
+            );
+
             return AlertDialog(
               title: Text(isEdit ? 'Editar vehiculo' : 'Nuevo vehiculo'),
               content: SingleChildScrollView(
@@ -212,29 +216,72 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         labelText: 'Tipo',
                         border: OutlineInputBorder(),
                       ),
-                      items: _vehicleTypes
+                      items: kVehicleTypes
                           .map(
                             (item) => DropdownMenuItem<String>(
                               value: item,
-                              child: Text(item.toUpperCase()),
+                              child: Text(vehicleTypeLabel(item).toUpperCase()),
                             ),
                           )
                           .toList(),
                       onChanged: (value) {
                         if (value == null) return;
-                        setDialogState(() => tipo = value);
+                        setDialogState(() {
+                          tipo = value;
+                          if (!vehicleTypeRequiresPlate(value)) {
+                            placaController.clear();
+                            placaTouched = false;
+                          }
+                        });
                       },
                     ),
                     const SizedBox(height: 12),
-                    TextField(
-                      controller: placaController,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: const InputDecoration(
-                        labelText: 'Placa',
-                        border: OutlineInputBorder(),
-                        hintText: 'Ej: ABC123',
+                    if (requiresPlate)
+                      TextField(
+                        controller: placaController,
+                        textCapitalization: TextCapitalization.characters,
+                        inputFormatters: <TextInputFormatter>[
+                          ...vehiclePlateInputFormatters(),
+                        ],
+                        decoration: InputDecoration(
+                          labelText: 'Placa',
+                          border: const OutlineInputBorder(),
+                          hintText: vehiclePlateHint(tipo),
+                          helperText:
+                              'Formato esperado: ${vehiclePlateHint(tipo)}',
+                          errorText: placaError,
+                        ),
+                        onChanged: (_) {
+                          if (!placaTouched) {
+                            setDialogState(() => placaTouched = true);
+                            return;
+                          }
+                          setDialogState(() {});
+                        },
+                      )
+                    else
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.pedal_bike_rounded,
+                              color: AppColors.primary,
+                            ),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Las bicicletas se registran sin placa.',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
                     const SizedBox(height: 12),
                     TextField(
                       controller: colorController,
@@ -243,6 +290,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         border: OutlineInputBorder(),
                         hintText: 'Ej: Negro',
                       ),
+                      onChanged: (_) => setDialogState(() {}),
                     ),
                   ],
                 ),
@@ -258,14 +306,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onPressed: saving
                       ? null
                       : () async {
-                          final placa = placaController.text
-                              .trim()
-                              .toUpperCase()
-                              .replaceAll(' ', '');
                           final color = colorController.text.trim();
-                          if (placa.isEmpty || color.isEmpty) {
+                          final requiresPlate = vehicleTypeRequiresPlate(tipo);
+                          final placa = normalizeVehiclePlate(
+                            placaController.text,
+                          );
+
+                          if ((requiresPlate &&
+                                  vehiclePlateError(
+                                        tipo,
+                                        placaController.text,
+                                        touched: true,
+                                      ) !=
+                                      null) ||
+                              color.isEmpty) {
+                            setDialogState(() => placaTouched = true);
                             _showMessage(
-                              'Debes completar placa y color.',
+                              requiresPlate
+                                  ? (vehiclePlateError(
+                                          tipo,
+                                          placaController.text,
+                                          touched: true,
+                                        ) ??
+                                        'Debes completar placa y color.')
+                                  : 'Debes completar el color del vehiculo.',
                               Colors.orange,
                             );
                             return;
@@ -274,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           setDialogState(() => saving = true);
                           final payload = <String, dynamic>{
                             'tipo': tipo,
-                            'placa': placa,
+                            'placa': vehiclePlatePayload(tipo, placa),
                             'color': color,
                           };
 
@@ -336,7 +400,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final vehiculoId = _asInt(vehiculo['id']);
     if (vehiculoId == null) return;
 
-    final placa = (vehiculo['placa'] ?? '').toString().toUpperCase();
+    final placa = vehicleDisplayPlate(
+      vehiculo['tipo']?.toString(),
+      vehiculo['placa']?.toString(),
+    );
     final confirmar = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -641,8 +708,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildVehiculoTile(Map<String, dynamic> vehiculo) {
-    final placa = (vehiculo['placa'] ?? '').toString().toUpperCase();
-    final tipo = (vehiculo['tipo'] ?? '').toString().toUpperCase();
+    final placa = vehicleDisplayPlate(
+      vehiculo['tipo']?.toString(),
+      vehiculo['placa']?.toString(),
+    );
+    final tipo = vehicleTypeLabel(vehiculo['tipo']?.toString()).toUpperCase();
     final color = (vehiculo['color'] ?? '').toString();
 
     return Container(

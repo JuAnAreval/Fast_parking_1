@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.parqueaderos" "\0"
-            VALUE "FileDescription", "usuarios" "\0"
+            VALUE "FileDescription", "Fast Parking" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "usuarios" "\0"
+            VALUE "InternalName", "FastParking" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2025 com.parqueaderos. All rights reserved." "\0"
-            VALUE "OriginalFilename", "usuarios.exe" "\0"
-            VALUE "ProductName", "usuarios" "\0"
+            VALUE "OriginalFilename", "FastParking.exe" "\0"
+            VALUE "ProductName", "Fast Parking" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

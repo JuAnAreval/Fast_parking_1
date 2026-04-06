@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { clearSession, getToken } from "../utils/session";
+import { clearSession, getSessionActor, getToken } from "../utils/session";
 import { API_BASE_URL } from "./apiBaseUrl";
 
 const api = axios.create({
@@ -18,9 +18,11 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
+      const actor = getSessionActor();
       clearSession();
-      if (window.location.pathname !== "/") {
-        window.location.href = "/";
+      const redirectPath = actor === "admin" ? "/admin/login" : "/";
+      if (window.location.pathname !== redirectPath) {
+        window.location.href = redirectPath;
       }
     }
     return Promise.reject(error);

@@ -1,14 +1,21 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
-import { isParqueaderoAuthenticated } from "../utils/session";
+import { isAdminAuthenticated, isParqueaderoAuthenticated } from "../utils/session";
 
-export default function ProtectedRoute({ children }) {
+export default function ProtectedRoute({ children, actor = "parqueadero" }) {
   const location = useLocation();
+  const isAllowed =
+    actor === "admin" ? isAdminAuthenticated() : isParqueaderoAuthenticated();
 
-  if (!isParqueaderoAuthenticated()) {
-    return <Navigate to="/" replace state={{ from: location.pathname }} />;
+  if (!isAllowed) {
+    return (
+      <Navigate
+        to={actor === "admin" ? "/admin/login" : "/"}
+        replace
+        state={{ from: location.pathname }}
+      />
+    );
   }
 
   return children;
 }
-

@@ -77,7 +77,9 @@ export default function RegisterParqueadero() {
         latitud,
         longitud,
       });
-      setMensaje(res.data.message || "Registro completado con exito.");
+      setMensaje(
+        res.data.message || "Registro completado. Revisa tu correo para verificar la cuenta.",
+      );
       setMensajeTipo("success");
       setShowToast(true);
       setTimeout(() => {
@@ -216,7 +218,7 @@ export default function RegisterParqueadero() {
 
       {showToast && (
         <div className="toast-success">
-          <span>Parqueadero registrado exitosamente</span>
+          <span>Parqueadero registrado. Revisa tu correo.</span>
         </div>
       )}
     </div>

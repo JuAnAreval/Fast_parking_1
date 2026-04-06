@@ -96,21 +96,35 @@ function attachPoolListeners(pool, dbTimezone) {
 }
 
 let pool;
+let closePoolForTests = null;
 
 try {
     const { config, dbTimezone } = buildPoolConfig();
     pool = mysql.createPool(config);
     attachPoolListeners(pool, dbTimezone);
 
-    pool.getConnection((err, connection) => {
-        if (err) {
-            console.error("Error al conectar a la base de datos:", err.message || err);
-            return;
-        }
+    closePoolForTests = () =>
+        new Promise((resolve, reject) => {
+            pool.end((err) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve();
+            });
+        });
 
-        console.log("Pool MySQL listo");
-        connection.release();
-    });
+    if (process.env.NODE_ENV !== "test") {
+        pool.getConnection((err, connection) => {
+            if (err) {
+                console.error("Error al conectar a la base de datos:", err.message || err);
+                return;
+            }
+
+            console.log("Pool MySQL listo");
+            connection.release();
+        });
+    }
 } catch (err) {
     console.error("Exception creating DB pool:", err.message || err);
     pool = null;
@@ -151,4 +165,12 @@ if (!pool) {
     };
 } else {
     module.exports = pool;
+    if (process.env.NODE_ENV === 'test') {
+        module.exports.end = function (cb) {
+            if (typeof cb === "function") cb();
+        };
+        module.exports.closePoolForTests = function () {
+            return closePoolForTests ? closePoolForTests() : Promise.resolve();
+        };
+    }
 }

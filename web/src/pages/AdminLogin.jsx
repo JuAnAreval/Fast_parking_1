@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FaEnvelope, FaEye, FaEyeSlash, FaLock } from "react-icons/fa";
 import api from "../services/api";
-import { clearSession, setParqueaderoSession } from "../utils/session";
+import { clearSession, setAdminSession } from "../utils/session";
 import "./login.css";
 
-export default function Login() {
+export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,40 +19,24 @@ export default function Login() {
     setLoading(true);
 
     if (!email || !password) {
-      setMensaje({
-        type: "error",
-        text: "Por favor ingresa correo y contrasena.",
-      });
+      setMensaje({ type: "error", text: "Por favor ingresa correo y contrasena." });
       setLoading(false);
       return;
     }
 
     try {
-      const res = await api.post("/parqueaderos/login", { email, password });
-
+      const res = await api.post("/admin/login", { email, password });
       clearSession();
-      setParqueaderoSession({
+      setAdminSession({
         token: res.data.token,
-        parqueadero: res.data.parqueadero,
+        admin: res.data.admin,
       });
-
-      setMensaje({ type: "success", text: "Inicio de sesion exitoso." });
-      setTimeout(() => navigate("/dashboard"), 700);
-      } catch (err) {
-        let errorText = "Error al iniciar sesion.";
-        if (err.response) {
-          if (err.response.status === 404) {
-            errorText = "No registrado. Haz click en Registrar.";
-          } else if (err.response.status === 401) {
-            errorText = "Contrasena incorrecta.";
-          } else if (err.response.status === 403) {
-            errorText =
-              err.response?.data?.message ||
-              "Debes verificar tu correo antes de iniciar sesion.";
-          }
-        } else {
-          errorText = "Error de conexion.";
-      }
+      setMensaje({ type: "success", text: "Inicio de sesion admin exitoso." });
+      setTimeout(() => navigate("/admin/dashboard"), 700);
+    } catch (err) {
+      const errorText =
+        err.response?.data?.message ||
+        "No fue posible iniciar sesion como administrador.";
       setMensaje({ type: "error", text: errorText });
     } finally {
       setLoading(false);
@@ -61,8 +45,8 @@ export default function Login() {
 
   return (
     <div className="auth-box">
-      <h1>Fast Parking</h1>
-      <p>Accede a tu cuenta para gestionar tus parqueaderos.</p>
+      <h1>Fast Parking Admin</h1>
+      <p>Accede al panel para gestionar usuarios, parqueaderos y verificaciones.</p>
 
       <form onSubmit={handleLogin}>
         <div className="input-group">
@@ -70,7 +54,7 @@ export default function Login() {
           <input
             className="input"
             type="email"
-            placeholder="Correo electronico"
+            placeholder="Correo del administrador"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -97,33 +81,17 @@ export default function Login() {
           </button>
         </div>
 
-        {mensaje && (
-          <div className={`alert alert-${mensaje.type} text-center`}>{mensaje.text}</div>
-        )}
+        {mensaje && <div className={`alert alert-${mensaje.type} text-center`}>{mensaje.text}</div>}
 
-        <button
-          className={`btn btn-primary ${loading ? "opacity-75 cursor-not-allowed" : ""}`}
-          type="submit"
-          disabled={loading}
-        >
-          {loading ? (
-            <span className="spinner" style={{ width: "1.2rem", height: "1.2rem", borderWidth: "2px" }} />
-          ) : (
-            "Ingresar"
-          )}
+        <button className="btn btn-primary" type="submit" disabled={loading}>
+          {loading ? "Ingresando..." : "Ingresar al panel admin"}
         </button>
       </form>
 
       <p className="register-text">
-        No tienes cuenta?{" "}
-        <Link to="/register-parqueadero" className="link">
-          Registrate aqui
-        </Link>
-      </p>
-      <p className="register-text">
-        Eres administrador?{" "}
-        <Link to="/admin/login" className="link">
-          Entrar al panel admin
+        Volver al panel de parqueaderos?{" "}
+        <Link to="/" className="link">
+          Ingresar aqui
         </Link>
       </p>
     </div>

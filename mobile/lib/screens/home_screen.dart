@@ -85,6 +85,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _refreshParqueaderos() async {
     _unselectParqueadero();
+    await _controller.setVehicleFilter(null);
     await _controller.loadParqueaderos();
   }
 
@@ -148,11 +149,11 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  void _showReservationDialog() {
+  Future<void> _showReservationDialog() async {
     final selected = _controller.selectedParqueadero;
     if (selected == null) return;
 
-    showDialog(
+    final result = await showDialog<ReservationDialogResult>(
       context: context,
       builder: (context) => ReservationDialog(
         parqueadero: selected,
@@ -160,6 +161,12 @@ class _HomeScreenState extends State<HomeScreen>
         onReservar: _crearReserva,
       ),
     );
+
+    if (!mounted || result == null || result.unsupportedVehicleType == null) {
+      return;
+    }
+
+    await _showTarifaNoDisponibleDialog(result.unsupportedVehicleType!);
   }
 
   Future<bool> _crearReserva(Map<String, dynamic> reservaData) async {
@@ -188,6 +195,33 @@ class _HomeScreenState extends State<HomeScreen>
       );
       return false;
     }
+  }
+
+  Future<void> _showTarifaNoDisponibleDialog(String tipo) async {
+    final label = tipo.toUpperCase();
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Tarifa no disponible'),
+        content: Text('Este parqueadero no cuenta con tarifa para $label.'),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Entendido'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleVehicleFilterChanged(String? tipo) async {
+    await _controller.setVehicleFilter(tipo);
   }
 
   @override
@@ -248,14 +282,34 @@ class _HomeScreenState extends State<HomeScreen>
       children: [
         RepaintBoundary(
           child: ParkingMapView(
-            parqueaderos: _controller.parqueaderos,
+            parqueaderos: _controller.filteredParqueaderos,
             selectedParqueadero: _controller.selectedParqueadero,
             onSelectParqueadero: _selectParqueadero,
             onTapEmpty: _unselectParqueadero,
           ),
         ),
-        if (_controller.parqueaderos.isEmpty)
-          const IgnorePointer(child: HomeEmptyState()),
+        Positioned(
+          top: 14,
+          left: 12,
+          right: 64,
+          child: HomeVehicleFilterBar(
+            selectedType: _controller.vehicleFilter,
+            onSelected: (tipo) {
+              unawaited(_handleVehicleFilterChanged(tipo));
+            },
+          ),
+        ),
+        if (_controller.loadingVehicleFilter)
+          const IgnorePointer(child: HomeFilterLoadingState()),
+        if (_controller.filteredParqueaderos.isEmpty &&
+            !_controller.loadingVehicleFilter)
+          IgnorePointer(
+            child: HomeEmptyState(
+              message: _controller.vehicleFilter == null
+                  ? 'No hay parqueaderos disponibles.'
+                  : 'No hay parqueaderos para ${_controller.vehicleFilter!.toUpperCase()}.',
+            ),
+          ),
       ],
     );
   }
