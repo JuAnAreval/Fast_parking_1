@@ -94,7 +94,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (result['success'] == true) {
         TextInput.finishAutofillContext();
         _showMessage(
-          'Cuenta creada con exito.',
+          'Cuenta creada. Revisa tu correo para verificarla.',
           AppColors.success,
           Icons.check_circle_outline,
         );

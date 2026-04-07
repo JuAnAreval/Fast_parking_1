@@ -4,6 +4,7 @@ let transporterPromise = null;
 
 const getSmtpHost = () => String(process.env.SMTP_HOST || '').trim();
 const getSmtpUser = () => String(process.env.SMTP_USER || '').trim();
+const getResendApiKey = () => String(process.env.RESEND_API_KEY || '').trim();
 const getSmtpPass = () => {
     const password = String(process.env.SMTP_PASS || '').trim();
     const host = getSmtpHost().toLowerCase();
@@ -18,6 +19,7 @@ const getSmtpPass = () => {
 
 const hasEmailConfig = () =>
     Boolean(
+        getResendApiKey() ||
         process.env.SMTP_URL ||
         (getSmtpHost() &&
             process.env.SMTP_PORT &&
@@ -41,6 +43,10 @@ const getTransporter = async () => {
             host: getSmtpHost(),
             port: Number(process.env.SMTP_PORT || 587),
             secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
+            requireTLS: Number(process.env.SMTP_PORT || 587) === 587,
+            connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT_MS || 10000),
+            greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT_MS || 10000),
+            socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT_MS || 15000),
             auth: {
                 user: getSmtpUser(),
                 pass: getSmtpPass(),
@@ -51,22 +57,97 @@ const getTransporter = async () => {
     return transporterPromise;
 };
 
-const sendMail = async ({ to, subject, html, text }) => {
-    const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
-    const transporter = await getTransporter();
-
-    if (!transporter || !from) {
-        console.log('[email-preview]', { to, subject, text });
-        return { sent: false, preview: true };
+const sendWithResend = async ({ from, to, subject, html, text }) => {
+    if (typeof fetch !== 'function') {
+        throw new Error('Fetch API no disponible para enviar con Resend');
     }
 
-    try {
-        await transporter.sendMail({
+    const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${getResendApiKey()}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
             from,
             to,
             subject,
             html,
             text,
+        }),
+    });
+
+    const responseText = await response.text();
+    let data = null;
+    try {
+        data = responseText ? JSON.parse(responseText) : null;
+    } catch (_) {
+        data = { raw: responseText };
+    }
+
+    if (!response.ok) {
+        const err = new Error(data?.message || data?.error || `Resend API error ${response.status}`);
+        err.code = 'RESEND_API_ERROR';
+        err.status = response.status;
+        err.response = data;
+        throw err;
+    }
+
+    console.log('[email-sent]', {
+        provider: 'resend',
+        to,
+        subject,
+        messageId: data?.id || null,
+    });
+
+    return { sent: true, preview: false, provider: 'resend', id: data?.id || null };
+};
+
+const sendMail = async ({ to, subject, html, text }) => {
+    const from = process.env.EMAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER;
+
+    if (!hasEmailConfig() || !from) {
+        console.log('[email-preview]', { to, subject, text });
+        return { sent: false, preview: true };
+    }
+
+    if (getResendApiKey()) {
+        try {
+            return await sendWithResend({ from, to, subject, html, text });
+        } catch (err) {
+            console.error('[email-error]', {
+                provider: 'resend',
+                message: err.message,
+                code: err.code,
+                status: err.status,
+                response: err.response,
+                hasApiKey: Boolean(getResendApiKey()),
+                hasFrom: Boolean(from),
+            });
+            throw err;
+        }
+    }
+
+    const transporter = await getTransporter();
+    if (!transporter) {
+        console.log('[email-preview]', { to, subject, text });
+        return { sent: false, preview: true };
+    }
+
+    try {
+        const info = await transporter.sendMail({
+            from,
+            to,
+            subject,
+            html,
+            text,
+        });
+        console.log('[email-sent]', {
+            to,
+            subject,
+            messageId: info.messageId,
+            smtpHost: getSmtpHost() || 'SMTP_URL',
+            smtpUser: getSmtpUser() || null,
         });
     } catch (err) {
         console.error('[email-error]', {

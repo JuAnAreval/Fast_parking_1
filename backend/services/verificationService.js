@@ -110,12 +110,27 @@ const issueVerificationForRecord = async (actorType, record) => {
         [tokenHash, VERIFICATION_EXPIRATION_HOURS, record.id],
     );
 
-    const verificationUrl = await sendVerificationEmail({
+    const verificationUrl = buildVerificationUrl(actorType, rawToken);
+    const emailPromise = sendVerificationEmail({
         actorType,
         email: record[config.emailField],
         name: record[config.nameField],
         token: rawToken,
     });
+
+    if (String(process.env.EMAIL_SEND_SYNC || '').toLowerCase() === 'true') {
+        await emailPromise;
+    } else {
+        emailPromise.catch((err) => {
+            console.error('[verification-email-error]', {
+                actorType,
+                recordId: record.id,
+                email: record[config.emailField],
+                message: err.message,
+                code: err.code,
+            });
+        });
+    }
 
     return {
         token: rawToken,
