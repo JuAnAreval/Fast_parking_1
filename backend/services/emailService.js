@@ -2,13 +2,27 @@ const nodemailer = require('nodemailer');
 
 let transporterPromise = null;
 
+const getSmtpHost = () => String(process.env.SMTP_HOST || '').trim();
+const getSmtpUser = () => String(process.env.SMTP_USER || '').trim();
+const getSmtpPass = () => {
+    const password = String(process.env.SMTP_PASS || '').trim();
+    const host = getSmtpHost().toLowerCase();
+
+    // Google muestra las App Password con espacios, pero SMTP espera los 16 caracteres juntos.
+    if (host.includes('gmail.com')) {
+        return password.replace(/\s+/g, '');
+    }
+
+    return password;
+};
+
 const hasEmailConfig = () =>
     Boolean(
         process.env.SMTP_URL ||
-        (process.env.SMTP_HOST &&
+        (getSmtpHost() &&
             process.env.SMTP_PORT &&
-            process.env.SMTP_USER &&
-            process.env.SMTP_PASS),
+            getSmtpUser() &&
+            getSmtpPass()),
     );
 
 const getTransporter = async () => {
@@ -24,12 +38,12 @@ const getTransporter = async () => {
         }
 
         return nodemailer.createTransport({
-            host: process.env.SMTP_HOST,
+            host: getSmtpHost(),
             port: Number(process.env.SMTP_PORT || 587),
             secure: String(process.env.SMTP_SECURE || '').toLowerCase() === 'true',
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS,
+                user: getSmtpUser(),
+                pass: getSmtpPass(),
             },
         });
     })();
@@ -46,13 +60,28 @@ const sendMail = async ({ to, subject, html, text }) => {
         return { sent: false, preview: true };
     }
 
-    await transporter.sendMail({
-        from,
-        to,
-        subject,
-        html,
-        text,
-    });
+    try {
+        await transporter.sendMail({
+            from,
+            to,
+            subject,
+            html,
+            text,
+        });
+    } catch (err) {
+        console.error('[email-error]', {
+            message: err.message,
+            code: err.code,
+            command: err.command,
+            smtpHost: getSmtpHost() || 'SMTP_URL',
+            smtpPort: process.env.SMTP_PORT || null,
+            smtpSecure: process.env.SMTP_SECURE || null,
+            smtpUser: getSmtpUser() || null,
+            hasPassword: Boolean(getSmtpPass()),
+            hasFrom: Boolean(from),
+        });
+        throw err;
+    }
 
     return { sent: true, preview: false };
 };
