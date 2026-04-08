@@ -118,7 +118,7 @@ function AdminCreateParkingModal({ open, onClose, onCreate, creating }) {
   );
 }
 
-function ParqueaderoRow({ parqueadero, onSave, onDelete, saving }) {
+function ParqueaderoRow({ parqueadero, onSave, onDelete, onToggleAvailability, saving }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     nombre: parqueadero.nombre || "",
@@ -201,18 +201,24 @@ function ParqueaderoRow({ parqueadero, onSave, onDelete, saving }) {
       </td>
       <td>
         {isEditing ? (
-          <label className="admin-checkbox">
-            <input
-              type="checkbox"
-              checked={form.disponible}
-              onChange={(e) => setField("disponible", e.target.checked)}
-            />
-            <span>{form.disponible ? "Disponible" : "No disponible"}</span>
-          </label>
+          <button
+            type="button"
+            className={`admin-status-btn ${form.disponible ? "admin-status-on" : "admin-status-off"}`}
+            onClick={() => setField("disponible", !form.disponible)}
+            disabled={saving}
+          >
+            {form.disponible ? "Disponible" : "No disponible"}
+          </button>
         ) : (
-          <span className={`admin-pill ${parqueadero.disponible ? "admin-pill-ok" : "admin-pill-warn"}`}>
+          <button
+            type="button"
+            className={`admin-status-btn ${parqueadero.disponible ? "admin-status-on" : "admin-status-off"}`}
+            onClick={() => onToggleAvailability(parqueadero)}
+            disabled={saving}
+            title="Cambiar disponibilidad"
+          >
             {parqueadero.disponible ? "Disponible" : "No disponible"}
-          </span>
+          </button>
         )}
       </td>
       <td>
@@ -336,6 +342,17 @@ export default function AdminParqueaderos() {
     }
   };
 
+  const handleToggleAvailability = async (parqueadero) => {
+    await handleSave(parqueadero.id, {
+      nombre: parqueadero.nombre,
+      email: parqueadero.email,
+      direccion: parqueadero.direccion,
+      cupos: parqueadero.cupos,
+      disponible: !parqueadero.disponible,
+      email_verificado: Boolean(parqueadero.email_verificado),
+    });
+  };
+
   const handleCreate = async (payload) => {
     setCreating(true);
     setMensaje(null);
@@ -447,6 +464,7 @@ export default function AdminParqueaderos() {
                   parqueadero={parqueadero}
                   onSave={handleSave}
                   onDelete={handleDelete}
+                  onToggleAvailability={handleToggleAvailability}
                   saving={savingId === parqueadero.id}
                 />
               ))}
