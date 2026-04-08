@@ -51,23 +51,14 @@ export default function EmailVerification() {
             {status === "success" ? "Cuenta verificada" : "No fue posible verificar la cuenta"}
           </div>
         )}
-        <p className="register-text">
-          {actor === "parqueadero" ? (
-            <>
-              Ir al login del panel?{" "}
-              <Link className="link" to="/">
-                Ingresar al panel
-              </Link>
-            </>
-          ) : (
-            <>
-              Si eres administrador, puedes entrar aqui:{" "}
-              <Link className="link" to="/admin/login">
-                Panel admin
-              </Link>
-            </>
-          )}
-        </p>
+        {actor === "parqueadero" && (
+          <p className="register-text">
+            Ir al login del panel?{" "}
+            <Link className="link" to="/">
+              Ingresar al panel
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   );

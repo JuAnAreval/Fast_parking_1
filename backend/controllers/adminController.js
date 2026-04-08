@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const db = require('../config/db');
 const { signAdminToken } = require('../middlewares/auth');
+const { sendMail } = require('../services/emailService');
 
 const toPositiveInt = (value) => {
     const n = Number(value);
@@ -188,4 +189,46 @@ exports.actualizarParqueadero = (req, res) => {
             return res.json({ mensaje: 'Parqueadero actualizado', message: 'Parking updated' });
         },
     );
+};
+
+exports.probarCorreo = async (req, res) => {
+    const to = String(req.body?.to || '').trim();
+    if (!to) {
+        return res.status(400).json({
+            mensaje: 'Debes enviar el correo destino',
+            message: 'Destination email is required',
+        });
+    }
+
+    try {
+        const result = await sendMail({
+            to,
+            subject: 'Prueba de correo Fast Parking',
+            text: 'Este es un correo de prueba de Fast Parking.',
+            html: `
+                <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5;">
+                    <h2>Prueba de correo Fast Parking</h2>
+                    <p>Si recibiste este correo, la configuracion de Brevo esta funcionando.</p>
+                </div>
+            `,
+        });
+
+        return res.json({
+            mensaje: 'Prueba de correo procesada',
+            message: 'Test email processed',
+            result,
+        });
+    } catch (err) {
+        console.error('Error enviando correo de prueba admin:', err);
+        return res.status(502).json({
+            mensaje: 'No se pudo enviar el correo de prueba',
+            message: 'Test email could not be sent',
+            error: {
+                message: err.message,
+                code: err.code,
+                status: err.status,
+                response: err.response,
+            },
+        });
+    }
 };
