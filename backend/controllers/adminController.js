@@ -31,6 +31,8 @@ const listParqueaderosSql = `
         cupos,
         disponible,
         email,
+        latitud,
+        longitud,
         email_verificado,
         email_verificado_en,
         creado_en
@@ -113,6 +115,9 @@ exports.listarUsuarios = (_req, res) => {
 exports.actualizarUsuario = (req, res) => {
     const id = toPositiveInt(req.params.id);
     const rol = String(req.body?.rol || '').trim().toLowerCase();
+    const nombre = typeof req.body?.nombre === 'string' ? req.body.nombre.trim() : null;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : null;
+    const telefono = typeof req.body?.telefono === 'string' ? req.body.telefono.trim() : null;
     const emailVerificado = req.body?.email_verificado === true || req.body?.email_verificado === 1;
 
     if (!id) {
@@ -125,6 +130,27 @@ exports.actualizarUsuario = (req, res) => {
 
     const updates = ['email_verificado = ?', 'email_verificado_en = ?'];
     const params = [emailVerificado ? 1 : 0, emailVerificado ? new Date() : null];
+
+    if (nombre !== null) {
+        if (!nombre) {
+            return res.status(400).json({ mensaje: 'Nombre requerido', message: 'Name is required' });
+        }
+        updates.push('nombre = ?');
+        params.push(nombre);
+    }
+
+    if (email !== null) {
+        if (!email) {
+            return res.status(400).json({ mensaje: 'Correo requerido', message: 'Email is required' });
+        }
+        updates.push('email = ?');
+        params.push(email);
+    }
+
+    if (telefono !== null) {
+        updates.push('telefono = ?');
+        params.push(telefono || null);
+    }
 
     if (rol) {
         updates.push('rol = ?');
@@ -140,6 +166,9 @@ exports.actualizarUsuario = (req, res) => {
         (err, result) => {
             if (err) {
                 console.error('Error actualizando usuario admin:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({ mensaje: 'El correo ya esta registrado', message: 'Email already registered' });
+                }
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
             if (!result || result.affectedRows === 0) {
@@ -148,6 +177,33 @@ exports.actualizarUsuario = (req, res) => {
             return res.json({ mensaje: 'Usuario actualizado', message: 'User updated' });
         },
     );
+};
+
+exports.eliminarUsuario = (req, res) => {
+    const id = toPositiveInt(req.params.id);
+    if (!id) {
+        return res.status(400).json({ mensaje: 'ID de usuario invalido', message: 'Invalid user id' });
+    }
+
+    if (req.auth?.actorId === id) {
+        return res.status(400).json({
+            mensaje: 'No puedes eliminar tu propia cuenta administradora',
+            message: 'You cannot delete your own admin account',
+        });
+    }
+
+    db.query('DELETE FROM usuarios WHERE id = ?', [id], (err, result) => {
+        if (err) {
+            console.error('Error eliminando usuario admin:', err);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        if (!result || result.affectedRows === 0) {
+            return res.status(404).json({ mensaje: 'Usuario no encontrado', message: 'User not found' });
+        }
+
+        return res.json({ mensaje: 'Usuario eliminado', message: 'User deleted' });
+    });
 };
 
 exports.listarParqueaderos = (_req, res) => {
@@ -163,24 +219,78 @@ exports.listarParqueaderos = (_req, res) => {
 exports.actualizarParqueadero = (req, res) => {
     const id = toPositiveInt(req.params.id);
     const emailVerificado = req.body?.email_verificado === true || req.body?.email_verificado === 1;
+    const nombre = typeof req.body?.nombre === 'string' ? req.body.nombre.trim() : null;
+    const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : null;
+    const direccion = typeof req.body?.direccion === 'string' ? req.body.direccion.trim() : null;
+    const cupos = req.body?.cupos !== undefined ? toPositiveInt(req.body.cupos) : null;
+    const disponible =
+        req.body?.disponible === true || req.body?.disponible === 1
+            ? 1
+            : req.body?.disponible === false || req.body?.disponible === 0
+                ? 0
+                : null;
 
     if (!id) {
         return res.status(400).json({ mensaje: 'ID de parqueadero invalido', message: 'Invalid parking id' });
     }
 
+    if (req.body?.cupos !== undefined && !cupos) {
+        return res.status(400).json({ mensaje: 'Cupos invalidos', message: 'Invalid capacity' });
+    }
+
+    const updates = [
+        'email_verificado = ?',
+        'email_verificado_en = ?',
+        'verification_token_hash = NULL',
+        'verification_token_expires_at = NULL',
+    ];
+    const params = [emailVerificado ? 1 : 0, emailVerificado ? new Date() : null];
+
+    if (nombre !== null) {
+        if (!nombre) {
+            return res.status(400).json({ mensaje: 'Nombre requerido', message: 'Name is required' });
+        }
+        updates.push('nombre = ?');
+        params.push(nombre);
+    }
+
+    if (email !== null) {
+        if (!email) {
+            return res.status(400).json({ mensaje: 'Correo requerido', message: 'Email is required' });
+        }
+        updates.push('email = ?');
+        params.push(email);
+    }
+
+    if (direccion !== null) {
+        if (!direccion) {
+            return res.status(400).json({ mensaje: 'Direccion requerida', message: 'Address is required' });
+        }
+        updates.push('direccion = ?');
+        params.push(direccion);
+    }
+
+    if (cupos !== null) {
+        updates.push('cupos = ?');
+        params.push(cupos);
+    }
+
+    if (disponible !== null) {
+        updates.push('disponible = ?');
+        params.push(disponible);
+    }
+
+    params.push(id);
+
     db.query(
-        `
-            UPDATE parqueaderos
-            SET email_verificado = ?,
-                email_verificado_en = ?,
-                verification_token_hash = NULL,
-                verification_token_expires_at = NULL
-            WHERE id = ?
-        `,
-        [emailVerificado ? 1 : 0, emailVerificado ? new Date() : null, id],
+        `UPDATE parqueaderos SET ${updates.join(', ')} WHERE id = ?`,
+        params,
         (err, result) => {
             if (err) {
                 console.error('Error actualizando parqueadero admin:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({ mensaje: 'El correo ya esta registrado', message: 'Email already registered' });
+                }
                 return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
             }
             if (!result || result.affectedRows === 0) {
@@ -189,6 +299,26 @@ exports.actualizarParqueadero = (req, res) => {
             return res.json({ mensaje: 'Parqueadero actualizado', message: 'Parking updated' });
         },
     );
+};
+
+exports.eliminarParqueadero = (req, res) => {
+    const id = toPositiveInt(req.params.id);
+    if (!id) {
+        return res.status(400).json({ mensaje: 'ID de parqueadero invalido', message: 'Invalid parking id' });
+    }
+
+    db.query('DELETE FROM parqueaderos WHERE id = ?', [id], (err, result) => {
+        if (err) {
+            console.error('Error eliminando parqueadero admin:', err);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        if (!result || result.affectedRows === 0) {
+            return res.status(404).json({ mensaje: 'Parqueadero no encontrado', message: 'Parking not found' });
+        }
+
+        return res.json({ mensaje: 'Parqueadero eliminado', message: 'Parking deleted' });
+    });
 };
 
 exports.probarCorreo = async (req, res) => {

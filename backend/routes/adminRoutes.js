@@ -7,7 +7,9 @@ router.post('/login', adminController.loginAdmin);
 router.post('/test-email', requireAdminAuth, adminController.probarCorreo);
 router.get('/usuarios', requireAdminAuth, adminController.listarUsuarios);
 router.put('/usuarios/:id', requireAdminAuth, adminController.actualizarUsuario);
+router.delete('/usuarios/:id', requireAdminAuth, adminController.eliminarUsuario);
 router.get('/parqueaderos', requireAdminAuth, adminController.listarParqueaderos);
 router.put('/parqueaderos/:id', requireAdminAuth, adminController.actualizarParqueadero);
+router.delete('/parqueaderos/:id', requireAdminAuth, adminController.eliminarParqueadero);
 
 module.exports = router;

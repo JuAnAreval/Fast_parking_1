@@ -2,40 +2,162 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import "./admin.css";
 
-function ParqueaderoRow({ parqueadero, onSave, saving }) {
-  const [verificado, setVerificado] = useState(Boolean(parqueadero.email_verificado));
+function ParqueaderoRow({ parqueadero, onSave, onDelete, saving }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({
+    nombre: parqueadero.nombre || "",
+    email: parqueadero.email || "",
+    direccion: parqueadero.direccion || "",
+    cupos: Number(parqueadero.cupos || 0),
+    disponible: Boolean(parqueadero.disponible),
+    email_verificado: Boolean(parqueadero.email_verificado),
+  });
 
   useEffect(() => {
-    setVerificado(Boolean(parqueadero.email_verificado));
+    setForm({
+      nombre: parqueadero.nombre || "",
+      email: parqueadero.email || "",
+      direccion: parqueadero.direccion || "",
+      cupos: Number(parqueadero.cupos || 0),
+      disponible: Boolean(parqueadero.disponible),
+      email_verificado: Boolean(parqueadero.email_verificado),
+    });
+    setIsEditing(false);
   }, [parqueadero]);
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    const ok = await onSave(parqueadero.id, form);
+    if (ok) setIsEditing(false);
+  };
 
   return (
     <tr>
-      <td>{parqueadero.nombre}</td>
-      <td>{parqueadero.email}</td>
-      <td>{parqueadero.direccion}</td>
-      <td>{Number(parqueadero.cupos || 0)}</td>
-      <td>{parqueadero.disponible ? "Disponible" : "No disponible"}</td>
       <td>
-        <label className="admin-checkbox">
+        {isEditing ? (
           <input
-            type="checkbox"
-            checked={verificado}
-            onChange={(e) => setVerificado(e.target.checked)}
+            className="admin-input"
+            value={form.nombre}
+            onChange={(e) => setField("nombre", e.target.value)}
           />
-          <span>{verificado ? "Verificado" : "Pendiente"}</span>
-        </label>
+        ) : (
+          parqueadero.nombre
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <input
+            className="admin-input"
+            type="email"
+            value={form.email}
+            onChange={(e) => setField("email", e.target.value)}
+          />
+        ) : (
+          parqueadero.email
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <input
+            className="admin-input"
+            value={form.direccion}
+            onChange={(e) => setField("direccion", e.target.value)}
+          />
+        ) : (
+          parqueadero.direccion
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <input
+            className="admin-input admin-input-small"
+            type="number"
+            min="1"
+            value={form.cupos}
+            onChange={(e) => setField("cupos", e.target.value)}
+          />
+        ) : (
+          Number(parqueadero.cupos || 0)
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.disponible}
+              onChange={(e) => setField("disponible", e.target.checked)}
+            />
+            <span>{form.disponible ? "Disponible" : "No disponible"}</span>
+          </label>
+        ) : (
+          <span className={`admin-pill ${parqueadero.disponible ? "admin-pill-ok" : "admin-pill-warn"}`}>
+            {parqueadero.disponible ? "Disponible" : "No disponible"}
+          </span>
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.email_verificado}
+              onChange={(e) => setField("email_verificado", e.target.checked)}
+            />
+            <span>{form.email_verificado ? "Verificado" : "Pendiente"}</span>
+          </label>
+        ) : (
+          <span className={`admin-pill ${parqueadero.email_verificado ? "admin-pill-ok" : "admin-pill-warn"}`}>
+            {parqueadero.email_verificado ? "Verificado" : "Pendiente"}
+          </span>
+        )}
       </td>
       <td>{new Date(parqueadero.creado_en).toLocaleString()}</td>
       <td>
-        <button
-          type="button"
-          className="admin-action-btn"
-          onClick={() => onSave(parqueadero.id, { email_verificado: verificado })}
-          disabled={saving}
-        >
-          {saving ? "Guardando..." : "Guardar"}
-        </button>
+        <div className="admin-actions">
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                className="admin-action-btn"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={() => setIsEditing(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={() => setIsEditing(true)}
+                disabled={saving}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="admin-danger-btn"
+                onClick={() => onDelete(parqueadero)}
+                disabled={saving}
+              >
+                {saving ? "Procesando..." : "Eliminar"}
+              </button>
+            </>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -84,10 +206,32 @@ export default function AdminParqueaderos() {
       await api.put(`/admin/parqueaderos/${id}`, payload);
       setMensaje({ type: "success", text: "Parqueadero actualizado." });
       await loadParqueaderos();
+      return true;
     } catch (err) {
       setMensaje({
         type: "error",
         text: err.response?.data?.message || "No se pudo actualizar el parqueadero.",
+      });
+      return false;
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleDelete = async (parqueadero) => {
+    const confirmed = window.confirm(`Eliminar el parqueadero ${parqueadero.nombre}? Esta accion no se puede deshacer.`);
+    if (!confirmed) return;
+
+    setSavingId(parqueadero.id);
+    setMensaje(null);
+    try {
+      await api.delete(`/admin/parqueaderos/${parqueadero.id}`);
+      setMensaje({ type: "success", text: "Parqueadero eliminado." });
+      await loadParqueaderos();
+    } catch (err) {
+      setMensaje({
+        type: "error",
+        text: err.response?.data?.message || "No se pudo eliminar el parqueadero.",
       });
     } finally {
       setSavingId(null);
@@ -100,7 +244,7 @@ export default function AdminParqueaderos() {
         <div>
           <p className="admin-kicker">Panel administrador</p>
           <h1>Gestion de parqueaderos</h1>
-          <p>Aprueba el acceso al panel verificando las cuentas de parqueadero.</p>
+          <p>Edita parqueaderos, verifica cuentas o elimina registros del sistema.</p>
         </div>
         <input
           className="admin-search"
@@ -144,7 +288,7 @@ export default function AdminParqueaderos() {
                 <th>Disponibilidad</th>
                 <th>Estado</th>
                 <th>Creado</th>
-                <th>Accion</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -153,6 +297,7 @@ export default function AdminParqueaderos() {
                   key={parqueadero.id}
                   parqueadero={parqueadero}
                   onSave={handleSave}
+                  onDelete={handleDelete}
                   saving={savingId === parqueadero.id}
                 />
               ))}

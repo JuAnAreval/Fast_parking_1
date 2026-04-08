@@ -2,50 +2,145 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import "./admin.css";
 
-function UsuarioRow({ usuario, onSave, saving }) {
-  const [rol, setRol] = useState(usuario.rol || "user");
-  const [verificado, setVerificado] = useState(Boolean(usuario.email_verificado));
+function UsuarioRow({ usuario, onSave, onDelete, saving }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [form, setForm] = useState({
+    nombre: usuario.nombre || "",
+    email: usuario.email || "",
+    telefono: usuario.telefono || "",
+    rol: usuario.rol || "user",
+    email_verificado: Boolean(usuario.email_verificado),
+  });
 
   useEffect(() => {
-    setRol(usuario.rol || "user");
-    setVerificado(Boolean(usuario.email_verificado));
+    setForm({
+      nombre: usuario.nombre || "",
+      email: usuario.email || "",
+      telefono: usuario.telefono || "",
+      rol: usuario.rol || "user",
+      email_verificado: Boolean(usuario.email_verificado),
+    });
+    setIsEditing(false);
   }, [usuario]);
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    const ok = await onSave(usuario.id, form);
+    if (ok) setIsEditing(false);
+  };
 
   return (
     <tr>
-      <td>{usuario.nombre}</td>
-      <td>{usuario.email}</td>
-      <td>{usuario.telefono || "--"}</td>
       <td>
-        <select
-          className="admin-select"
-          value={rol}
-          onChange={(e) => setRol(e.target.value)}
-        >
-          <option value="user">user</option>
-          <option value="admin">admin</option>
-        </select>
+        {isEditing ? (
+          <input
+            className="admin-input"
+            value={form.nombre}
+            onChange={(e) => setField("nombre", e.target.value)}
+          />
+        ) : (
+          usuario.nombre
+        )}
       </td>
       <td>
-        <label className="admin-checkbox">
+        {isEditing ? (
           <input
-            type="checkbox"
-            checked={verificado}
-            onChange={(e) => setVerificado(e.target.checked)}
+            className="admin-input"
+            type="email"
+            value={form.email}
+            onChange={(e) => setField("email", e.target.value)}
           />
-          <span>{verificado ? "Verificado" : "Pendiente"}</span>
-        </label>
+        ) : (
+          usuario.email
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <input
+            className="admin-input"
+            value={form.telefono}
+            onChange={(e) => setField("telefono", e.target.value)}
+          />
+        ) : (
+          usuario.telefono || "--"
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <select
+            className="admin-select"
+            value={form.rol}
+            onChange={(e) => setField("rol", e.target.value)}
+          >
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+        ) : (
+          <span className="admin-pill">{usuario.rol || "user"}</span>
+        )}
+      </td>
+      <td>
+        {isEditing ? (
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.email_verificado}
+              onChange={(e) => setField("email_verificado", e.target.checked)}
+            />
+            <span>{form.email_verificado ? "Verificado" : "Pendiente"}</span>
+          </label>
+        ) : (
+          <span className={`admin-pill ${usuario.email_verificado ? "admin-pill-ok" : "admin-pill-warn"}`}>
+            {usuario.email_verificado ? "Verificado" : "Pendiente"}
+          </span>
+        )}
       </td>
       <td>{new Date(usuario.creado_en).toLocaleString()}</td>
       <td>
-        <button
-          type="button"
-          className="admin-action-btn"
-          onClick={() => onSave(usuario.id, { rol, email_verificado: verificado })}
-          disabled={saving}
-        >
-          {saving ? "Guardando..." : "Guardar"}
-        </button>
+        <div className="admin-actions">
+          {isEditing ? (
+            <>
+              <button
+                type="button"
+                className="admin-action-btn"
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Guardando..." : "Guardar"}
+              </button>
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={() => setIsEditing(false)}
+                disabled={saving}
+              >
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="admin-secondary-btn"
+                onClick={() => setIsEditing(true)}
+                disabled={saving}
+              >
+                Editar
+              </button>
+              <button
+                type="button"
+                className="admin-danger-btn"
+                onClick={() => onDelete(usuario)}
+                disabled={saving}
+              >
+                {saving ? "Procesando..." : "Eliminar"}
+              </button>
+            </>
+          )}
+        </div>
       </td>
     </tr>
   );
@@ -94,10 +189,32 @@ export default function AdminDashboard() {
       await api.put(`/admin/usuarios/${id}`, payload);
       setMensaje({ type: "success", text: "Usuario actualizado." });
       await loadUsuarios();
+      return true;
     } catch (err) {
       setMensaje({
         type: "error",
         text: err.response?.data?.message || "No se pudo actualizar el usuario.",
+      });
+      return false;
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleDelete = async (usuario) => {
+    const confirmed = window.confirm(`Eliminar el usuario ${usuario.email}? Esta accion no se puede deshacer.`);
+    if (!confirmed) return;
+
+    setSavingId(usuario.id);
+    setMensaje(null);
+    try {
+      await api.delete(`/admin/usuarios/${usuario.id}`);
+      setMensaje({ type: "success", text: "Usuario eliminado." });
+      await loadUsuarios();
+    } catch (err) {
+      setMensaje({
+        type: "error",
+        text: err.response?.data?.message || "No se pudo eliminar el usuario.",
       });
     } finally {
       setSavingId(null);
@@ -110,7 +227,7 @@ export default function AdminDashboard() {
         <div>
           <p className="admin-kicker">Panel administrador</p>
           <h1>Gestion de usuarios</h1>
-          <p>Controla roles y verificacion por correo de las cuentas del sistema.</p>
+          <p>Edita usuarios, cambia roles, verifica correos o elimina cuentas del sistema.</p>
         </div>
         <input
           className="admin-search"
@@ -153,7 +270,7 @@ export default function AdminDashboard() {
                 <th>Rol</th>
                 <th>Estado</th>
                 <th>Creado</th>
-                <th>Accion</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -162,6 +279,7 @@ export default function AdminDashboard() {
                   key={usuario.id}
                   usuario={usuario}
                   onSave={handleSave}
+                  onDelete={handleDelete}
                   saving={savingId === usuario.id}
                 />
               ))}
