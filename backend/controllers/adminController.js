@@ -112,6 +112,68 @@ exports.listarUsuarios = (_req, res) => {
     });
 };
 
+exports.crearUsuario = (req, res) => {
+    const nombre = String(req.body?.nombre || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const telefono = String(req.body?.telefono || '').trim();
+    const password = String(req.body?.password || '');
+    const rol = String(req.body?.rol || 'user').trim().toLowerCase();
+    const emailVerificado = req.body?.email_verificado === false || req.body?.email_verificado === 0 ? 0 : 1;
+
+    if (!nombre || !email || !password) {
+        return res.status(400).json({
+            mensaje: 'Nombre, correo y contrasena son requeridos',
+            message: 'Name, email and password are required',
+        });
+    }
+
+    if (!['user', 'admin'].includes(rol)) {
+        return res.status(400).json({ mensaje: 'Rol invalido', message: 'Invalid role' });
+    }
+
+    const passwordHash = bcrypt.hashSync(password, 8);
+    db.query(
+        `
+            INSERT INTO usuarios (
+                nombre,
+                email,
+                telefono,
+                password,
+                rol,
+                email_verificado,
+                email_verificado_en,
+                verification_token_hash,
+                verification_token_expires_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+        `,
+        [
+            nombre,
+            email,
+            telefono || null,
+            passwordHash,
+            rol,
+            emailVerificado,
+            emailVerificado ? new Date() : null,
+        ],
+        (err, result) => {
+            if (err) {
+                console.error('Error creando usuario admin:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(409).json({ mensaje: 'El correo ya esta registrado', message: 'Email already registered' });
+                }
+                return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+            }
+
+            return res.status(201).json({
+                mensaje: 'Usuario creado',
+                message: 'User created',
+                id: result.insertId,
+            });
+        },
+    );
+};
+
 exports.actualizarUsuario = (req, res) => {
     const id = toPositiveInt(req.params.id);
     const rol = String(req.body?.rol || '').trim().toLowerCase();
@@ -213,6 +275,83 @@ exports.listarParqueaderos = (_req, res) => {
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
         }
         return res.json(results || []);
+    });
+};
+
+exports.crearParqueadero = (req, res) => {
+    const nombre = String(req.body?.nombre || '').trim();
+    const direccion = String(req.body?.direccion || '').trim();
+    const email = String(req.body?.email || '').trim().toLowerCase();
+    const password = String(req.body?.password || '');
+    const cupos = toPositiveInt(req.body?.cupos);
+    const latitud = req.body?.latitud === undefined || req.body?.latitud === '' ? 0 : Number(req.body.latitud);
+    const longitud = req.body?.longitud === undefined || req.body?.longitud === '' ? 0 : Number(req.body.longitud);
+    const disponible = req.body?.disponible === false || req.body?.disponible === 0 ? 0 : 1;
+    const emailVerificado = req.body?.email_verificado === false || req.body?.email_verificado === 0 ? 0 : 1;
+
+    if (!nombre || !direccion || !email || !password || !cupos) {
+        return res.status(400).json({
+            mensaje: 'Nombre, direccion, correo, contrasena y cupos son requeridos',
+            message: 'Name, address, email, password and capacity are required',
+        });
+    }
+
+    if (!Number.isFinite(latitud) || !Number.isFinite(longitud)) {
+        return res.status(400).json({ mensaje: 'Coordenadas invalidas', message: 'Invalid coordinates' });
+    }
+
+    bcrypt.hash(password, 10, (hashErr, passwordHash) => {
+        if (hashErr) {
+            console.error('Error hasheando password de parqueadero admin:', hashErr);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        db.query(
+            `
+                INSERT INTO parqueaderos (
+                    nombre,
+                    direccion,
+                    cupos,
+                    disponible,
+                    email,
+                    password,
+                    latitud,
+                    longitud,
+                    email_verificado,
+                    email_verificado_en,
+                    verification_token_hash,
+                    verification_token_expires_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+            `,
+            [
+                nombre,
+                direccion,
+                cupos,
+                disponible,
+                email,
+                passwordHash,
+                latitud,
+                longitud,
+                emailVerificado,
+                emailVerificado ? new Date() : null,
+            ],
+            (err, result) => {
+                if (err) {
+                    console.error('Error creando parqueadero admin:', err);
+                    if (err.code === 'ER_DUP_ENTRY') {
+                        return res.status(409).json({ mensaje: 'El correo ya esta registrado', message: 'Email already registered' });
+                    }
+                    return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+                }
+
+                return res.status(201).json({
+                    mensaje: 'Parqueadero creado',
+                    message: 'Parking created',
+                    id: result.insertId,
+                });
+            },
+        );
     });
 };
 

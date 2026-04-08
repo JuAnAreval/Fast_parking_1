@@ -64,6 +64,36 @@
   color: var(--text-secondary);
 }
 
+.admin-create-card {
+  display: grid;
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.10), rgba(14, 165, 233, 0.08)), var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: 18px;
+}
+
+.admin-create-card h2 {
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+
+.admin-create-card p {
+  color: var(--text-secondary);
+}
+
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-create-submit {
+  justify-self: start;
+}
+
 .admin-table-wrap {
   overflow: auto;
   background: var(--surface);

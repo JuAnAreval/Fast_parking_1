@@ -2,6 +2,100 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import "./admin.css";
 
+const emptyParkingForm = {
+  nombre: "",
+  email: "",
+  direccion: "",
+  password: "",
+  cupos: 1,
+  disponible: true,
+  email_verificado: true,
+};
+
+function AdminCreateParkingForm({ onCreate, creating }) {
+  const [form, setForm] = useState(emptyParkingForm);
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const ok = await onCreate(form);
+    if (ok) setForm(emptyParkingForm);
+  };
+
+  return (
+    <form className="admin-create-card" onSubmit={handleSubmit}>
+      <div>
+        <p className="admin-kicker">Creacion directa</p>
+        <h2>Registrar parqueadero</h2>
+        <p>Se crea desde admin sin enviar correo de verificacion.</p>
+      </div>
+      <div className="admin-form-grid">
+        <input
+          className="admin-input"
+          placeholder="Nombre"
+          value={form.nombre}
+          onChange={(e) => setField("nombre", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input"
+          placeholder="Correo"
+          type="email"
+          value={form.email}
+          onChange={(e) => setField("email", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input"
+          placeholder="Direccion"
+          value={form.direccion}
+          onChange={(e) => setField("direccion", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input"
+          placeholder="Contrasena"
+          type="password"
+          value={form.password}
+          onChange={(e) => setField("password", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input admin-input-small"
+          placeholder="Cupos"
+          type="number"
+          min="1"
+          value={form.cupos}
+          onChange={(e) => setField("cupos", e.target.value)}
+          required
+        />
+        <label className="admin-checkbox">
+          <input
+            type="checkbox"
+            checked={form.disponible}
+            onChange={(e) => setField("disponible", e.target.checked)}
+          />
+          <span>Disponible</span>
+        </label>
+        <label className="admin-checkbox">
+          <input
+            type="checkbox"
+            checked={form.email_verificado}
+            onChange={(e) => setField("email_verificado", e.target.checked)}
+          />
+          <span>Crear como verificado</span>
+        </label>
+      </div>
+      <button className="admin-action-btn admin-create-submit" type="submit" disabled={creating}>
+        {creating ? "Creando..." : "Crear parqueadero"}
+      </button>
+    </form>
+  );
+}
+
 function ParqueaderoRow({ parqueadero, onSave, onDelete, saving }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
@@ -167,6 +261,7 @@ export default function AdminParqueaderos() {
   const [parqueaderos, setParqueaderos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [mensaje, setMensaje] = useState(null);
 
@@ -218,6 +313,25 @@ export default function AdminParqueaderos() {
     }
   };
 
+  const handleCreate = async (payload) => {
+    setCreating(true);
+    setMensaje(null);
+    try {
+      await api.post("/admin/parqueaderos", payload);
+      setMensaje({ type: "success", text: "Parqueadero creado sin enviar correo." });
+      await loadParqueaderos();
+      return true;
+    } catch (err) {
+      setMensaje({
+        type: "error",
+        text: err.response?.data?.message || "No se pudo crear el parqueadero.",
+      });
+      return false;
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleDelete = async (parqueadero) => {
     const confirmed = window.confirm(`Eliminar el parqueadero ${parqueadero.nombre}? Esta accion no se puede deshacer.`);
     if (!confirmed) return;
@@ -256,6 +370,8 @@ export default function AdminParqueaderos() {
       </div>
 
       {mensaje && <div className={`alert alert-${mensaje.type}`}>{mensaje.text}</div>}
+
+      <AdminCreateParkingForm onCreate={handleCreate} creating={creating} />
 
       <div className="admin-summary-grid">
         <article className="admin-summary-card">

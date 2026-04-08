@@ -2,6 +2,89 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import "./admin.css";
 
+const emptyUserForm = {
+  nombre: "",
+  email: "",
+  telefono: "",
+  password: "",
+  rol: "user",
+  email_verificado: true,
+};
+
+function AdminCreateUserForm({ onCreate, creating }) {
+  const [form, setForm] = useState(emptyUserForm);
+
+  const setField = (field, value) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    const ok = await onCreate(form);
+    if (ok) setForm(emptyUserForm);
+  };
+
+  return (
+    <form className="admin-create-card" onSubmit={handleSubmit}>
+      <div>
+        <p className="admin-kicker">Creacion directa</p>
+        <h2>Registrar usuario</h2>
+        <p>Se crea desde admin sin enviar correo de verificacion.</p>
+      </div>
+      <div className="admin-form-grid">
+        <input
+          className="admin-input"
+          placeholder="Nombre"
+          value={form.nombre}
+          onChange={(e) => setField("nombre", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input"
+          placeholder="Correo"
+          type="email"
+          value={form.email}
+          onChange={(e) => setField("email", e.target.value)}
+          required
+        />
+        <input
+          className="admin-input"
+          placeholder="Telefono"
+          value={form.telefono}
+          onChange={(e) => setField("telefono", e.target.value)}
+        />
+        <input
+          className="admin-input"
+          placeholder="Contrasena"
+          type="password"
+          value={form.password}
+          onChange={(e) => setField("password", e.target.value)}
+          required
+        />
+        <select
+          className="admin-select"
+          value={form.rol}
+          onChange={(e) => setField("rol", e.target.value)}
+        >
+          <option value="user">user</option>
+          <option value="admin">admin</option>
+        </select>
+        <label className="admin-checkbox">
+          <input
+            type="checkbox"
+            checked={form.email_verificado}
+            onChange={(e) => setField("email_verificado", e.target.checked)}
+          />
+          <span>Crear como verificado</span>
+        </label>
+      </div>
+      <button className="admin-action-btn admin-create-submit" type="submit" disabled={creating}>
+        {creating ? "Creando..." : "Crear usuario"}
+      </button>
+    </form>
+  );
+}
+
 function UsuarioRow({ usuario, onSave, onDelete, saving }) {
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
@@ -150,6 +233,7 @@ export default function AdminDashboard() {
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
+  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [mensaje, setMensaje] = useState(null);
 
@@ -201,6 +285,25 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleCreate = async (payload) => {
+    setCreating(true);
+    setMensaje(null);
+    try {
+      await api.post("/admin/usuarios", payload);
+      setMensaje({ type: "success", text: "Usuario creado sin enviar correo." });
+      await loadUsuarios();
+      return true;
+    } catch (err) {
+      setMensaje({
+        type: "error",
+        text: err.response?.data?.message || "No se pudo crear el usuario.",
+      });
+      return false;
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleDelete = async (usuario) => {
     const confirmed = window.confirm(`Eliminar el usuario ${usuario.email}? Esta accion no se puede deshacer.`);
     if (!confirmed) return;
@@ -239,6 +342,8 @@ export default function AdminDashboard() {
       </div>
 
       {mensaje && <div className={`alert alert-${mensaje.type}`}>{mensaje.text}</div>}
+
+      <AdminCreateUserForm onCreate={handleCreate} creating={creating} />
 
       <div className="admin-summary-grid">
         <article className="admin-summary-card">
