@@ -79,8 +79,6 @@ const sendVerificationEmail = async ({
                         Verificar cuenta
                     </a>
                 </p>
-                <p>Si el boton no funciona, copia este enlace:</p>
-                <p>${verificationUrl}</p>
                 <p>Este enlace vence en ${VERIFICATION_EXPIRATION_HOURS} horas.</p>
             </div>
         `,

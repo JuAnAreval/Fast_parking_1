@@ -5,6 +5,7 @@ let transporterPromise = null;
 const getSmtpHost = () => String(process.env.SMTP_HOST || '').trim();
 const getSmtpUser = () => String(process.env.SMTP_USER || '').trim();
 const getResendApiKey = () => String(process.env.RESEND_API_KEY || '').trim();
+const getBrevoApiKey = () => String(process.env.BREVO_API_KEY || '').trim();
 const getSmtpPass = () => {
     const password = String(process.env.SMTP_PASS || '').trim();
     const host = getSmtpHost().toLowerCase();
@@ -19,6 +20,7 @@ const getSmtpPass = () => {
 
 const hasEmailConfig = () =>
     Boolean(
+        getBrevoApiKey() ||
         getResendApiKey() ||
         process.env.SMTP_URL ||
         (getSmtpHost() &&
@@ -55,6 +57,76 @@ const getTransporter = async () => {
     })();
 
     return transporterPromise;
+};
+
+const parseEmailAddress = (value) => {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(.*)<([^>]+)>$/);
+    if (!match) {
+        return { name: undefined, email: raw };
+    }
+
+    const name = match[1].trim().replace(/^["']|["']$/g, '');
+    const email = match[2].trim();
+    return {
+        name: name || undefined,
+        email,
+    };
+};
+
+const sendWithBrevo = async ({ from, to, subject, html, text }) => {
+    if (typeof fetch !== 'function') {
+        throw new Error('Fetch API no disponible para enviar con Brevo');
+    }
+
+    const sender = parseEmailAddress(from);
+    const recipient = parseEmailAddress(to);
+    const payload = {
+        sender,
+        to: [{ email: recipient.email, name: recipient.name }],
+        subject,
+    };
+
+    if (html) {
+        payload.htmlContent = html;
+    } else {
+        payload.textContent = text || subject;
+    }
+
+    const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'api-key': getBrevoApiKey(),
+            'Content-Type': 'application/json',
+            accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const responseText = await response.text();
+    let data = null;
+    try {
+        data = responseText ? JSON.parse(responseText) : null;
+    } catch (_) {
+        data = { raw: responseText };
+    }
+
+    if (!response.ok) {
+        const err = new Error(data?.message || data?.error || `Brevo API error ${response.status}`);
+        err.code = 'BREVO_API_ERROR';
+        err.status = response.status;
+        err.response = data;
+        throw err;
+    }
+
+    console.log('[email-sent]', {
+        provider: 'brevo',
+        to,
+        subject,
+        messageId: data?.messageId || data?.messageIds || null,
+    });
+
+    return { sent: true, preview: false, provider: 'brevo', id: data?.messageId || null };
 };
 
 const sendWithResend = async ({ from, to, subject, html, text }) => {
@@ -109,6 +181,23 @@ const sendMail = async ({ to, subject, html, text }) => {
     if (!hasEmailConfig() || !from) {
         console.log('[email-preview]', { to, subject, text });
         return { sent: false, preview: true };
+    }
+
+    if (getBrevoApiKey()) {
+        try {
+            return await sendWithBrevo({ from, to, subject, html, text });
+        } catch (err) {
+            console.error('[email-error]', {
+                provider: 'brevo',
+                message: err.message,
+                code: err.code,
+                status: err.status,
+                response: err.response,
+                hasApiKey: Boolean(getBrevoApiKey()),
+                hasFrom: Boolean(from),
+            });
+            throw err;
+        }
     }
 
     if (getResendApiKey()) {
