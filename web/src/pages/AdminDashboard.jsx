@@ -11,8 +11,14 @@ const emptyUserForm = {
   email_verificado: true,
 };
 
-function AdminCreateUserForm({ onCreate, creating }) {
+function AdminCreateUserModal({ open, onClose, onCreate, creating }) {
   const [form, setForm] = useState(emptyUserForm);
+
+  useEffect(() => {
+    if (open) setForm(emptyUserForm);
+  }, [open]);
+
+  if (!open) return null;
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -21,67 +27,83 @@ function AdminCreateUserForm({ onCreate, creating }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     const ok = await onCreate(form);
-    if (ok) setForm(emptyUserForm);
+    if (ok) onClose();
   };
 
   return (
-    <form className="admin-create-card" onSubmit={handleSubmit}>
-      <div>
-        <p className="admin-kicker">Creacion directa</p>
-        <h2>Registrar usuario</h2>
-        <p>Se crea desde admin sin enviar correo de verificacion.</p>
-      </div>
-      <div className="admin-form-grid">
-        <input
-          className="admin-input"
-          placeholder="Nombre"
-          value={form.nombre}
-          onChange={(e) => setField("nombre", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input"
-          placeholder="Correo"
-          type="email"
-          value={form.email}
-          onChange={(e) => setField("email", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input"
-          placeholder="Telefono"
-          value={form.telefono}
-          onChange={(e) => setField("telefono", e.target.value)}
-        />
-        <input
-          className="admin-input"
-          placeholder="Contrasena"
-          type="password"
-          value={form.password}
-          onChange={(e) => setField("password", e.target.value)}
-          required
-        />
-        <select
-          className="admin-select"
-          value={form.rol}
-          onChange={(e) => setField("rol", e.target.value)}
-        >
-          <option value="user">user</option>
-          <option value="admin">admin</option>
-        </select>
-        <label className="admin-checkbox">
+    <div className="admin-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <form
+        className="admin-modal"
+        onSubmit={handleSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="admin-modal-header">
+          <div>
+            <p className="admin-kicker">Creacion directa</p>
+            <h2>Registrar usuario</h2>
+            <p>Se crea desde admin sin enviar correo de verificacion.</p>
+          </div>
+          <button className="admin-modal-close" type="button" onClick={onClose} aria-label="Cerrar">
+            x
+          </button>
+        </div>
+        <div className="admin-form-grid">
           <input
-            type="checkbox"
-            checked={form.email_verificado}
-            onChange={(e) => setField("email_verificado", e.target.checked)}
+            className="admin-input"
+            placeholder="Nombre"
+            value={form.nombre}
+            onChange={(e) => setField("nombre", e.target.value)}
+            required
           />
-          <span>Crear como verificado</span>
-        </label>
-      </div>
-      <button className="admin-action-btn admin-create-submit" type="submit" disabled={creating}>
-        {creating ? "Creando..." : "Crear usuario"}
-      </button>
-    </form>
+          <input
+            className="admin-input"
+            placeholder="Correo"
+            type="email"
+            value={form.email}
+            onChange={(e) => setField("email", e.target.value)}
+            required
+          />
+          <input
+            className="admin-input"
+            placeholder="Telefono"
+            value={form.telefono}
+            onChange={(e) => setField("telefono", e.target.value)}
+          />
+          <input
+            className="admin-input"
+            placeholder="Contrasena"
+            type="password"
+            value={form.password}
+            onChange={(e) => setField("password", e.target.value)}
+            required
+          />
+          <select
+            className="admin-select"
+            value={form.rol}
+            onChange={(e) => setField("rol", e.target.value)}
+          >
+            <option value="user">user</option>
+            <option value="admin">admin</option>
+          </select>
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.email_verificado}
+              onChange={(e) => setField("email_verificado", e.target.checked)}
+            />
+            <span>Crear como verificado</span>
+          </label>
+        </div>
+        <div className="admin-modal-actions">
+          <button className="admin-secondary-btn" type="button" onClick={onClose} disabled={creating}>
+            Cancelar
+          </button>
+          <button className="admin-action-btn" type="submit" disabled={creating}>
+            {creating ? "Creando..." : "Crear usuario"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -234,6 +256,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [mensaje, setMensaje] = useState(null);
 
@@ -332,18 +355,28 @@ export default function AdminDashboard() {
           <h1>Gestion de usuarios</h1>
           <p>Edita usuarios, cambia roles, verifica correos o elimina cuentas del sistema.</p>
         </div>
-        <input
-          className="admin-search"
-          type="search"
-          placeholder="Buscar por nombre, correo o rol"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="admin-header-actions">
+          <input
+            className="admin-search"
+            type="search"
+            placeholder="Buscar por nombre, correo o rol"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button className="admin-action-btn" type="button" onClick={() => setCreateOpen(true)}>
+            Crear usuario
+          </button>
+        </div>
       </div>
 
       {mensaje && <div className={`alert alert-${mensaje.type}`}>{mensaje.text}</div>}
 
-      <AdminCreateUserForm onCreate={handleCreate} creating={creating} />
+      <AdminCreateUserModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={handleCreate}
+        creating={creating}
+      />
 
       <div className="admin-summary-grid">
         <article className="admin-summary-card">

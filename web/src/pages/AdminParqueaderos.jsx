@@ -12,8 +12,14 @@ const emptyParkingForm = {
   email_verificado: true,
 };
 
-function AdminCreateParkingForm({ onCreate, creating }) {
+function AdminCreateParkingModal({ open, onClose, onCreate, creating }) {
   const [form, setForm] = useState(emptyParkingForm);
+
+  useEffect(() => {
+    if (open) setForm(emptyParkingForm);
+  }, [open]);
+
+  if (!open) return null;
 
   const setField = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }));
@@ -22,77 +28,93 @@ function AdminCreateParkingForm({ onCreate, creating }) {
   const handleSubmit = async (event) => {
     event.preventDefault();
     const ok = await onCreate(form);
-    if (ok) setForm(emptyParkingForm);
+    if (ok) onClose();
   };
 
   return (
-    <form className="admin-create-card" onSubmit={handleSubmit}>
-      <div>
-        <p className="admin-kicker">Creacion directa</p>
-        <h2>Registrar parqueadero</h2>
-        <p>Se crea desde admin sin enviar correo de verificacion.</p>
-      </div>
-      <div className="admin-form-grid">
-        <input
-          className="admin-input"
-          placeholder="Nombre"
-          value={form.nombre}
-          onChange={(e) => setField("nombre", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input"
-          placeholder="Correo"
-          type="email"
-          value={form.email}
-          onChange={(e) => setField("email", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input"
-          placeholder="Direccion"
-          value={form.direccion}
-          onChange={(e) => setField("direccion", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input"
-          placeholder="Contrasena"
-          type="password"
-          value={form.password}
-          onChange={(e) => setField("password", e.target.value)}
-          required
-        />
-        <input
-          className="admin-input admin-input-small"
-          placeholder="Cupos"
-          type="number"
-          min="1"
-          value={form.cupos}
-          onChange={(e) => setField("cupos", e.target.value)}
-          required
-        />
-        <label className="admin-checkbox">
+    <div className="admin-modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <form
+        className="admin-modal"
+        onSubmit={handleSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="admin-modal-header">
+          <div>
+            <p className="admin-kicker">Creacion directa</p>
+            <h2>Registrar parqueadero</h2>
+            <p>Se crea desde admin sin enviar correo de verificacion.</p>
+          </div>
+          <button className="admin-modal-close" type="button" onClick={onClose} aria-label="Cerrar">
+            x
+          </button>
+        </div>
+        <div className="admin-form-grid">
           <input
-            type="checkbox"
-            checked={form.disponible}
-            onChange={(e) => setField("disponible", e.target.checked)}
+            className="admin-input"
+            placeholder="Nombre"
+            value={form.nombre}
+            onChange={(e) => setField("nombre", e.target.value)}
+            required
           />
-          <span>Disponible</span>
-        </label>
-        <label className="admin-checkbox">
           <input
-            type="checkbox"
-            checked={form.email_verificado}
-            onChange={(e) => setField("email_verificado", e.target.checked)}
+            className="admin-input"
+            placeholder="Correo"
+            type="email"
+            value={form.email}
+            onChange={(e) => setField("email", e.target.value)}
+            required
           />
-          <span>Crear como verificado</span>
-        </label>
-      </div>
-      <button className="admin-action-btn admin-create-submit" type="submit" disabled={creating}>
-        {creating ? "Creando..." : "Crear parqueadero"}
-      </button>
-    </form>
+          <input
+            className="admin-input"
+            placeholder="Direccion"
+            value={form.direccion}
+            onChange={(e) => setField("direccion", e.target.value)}
+            required
+          />
+          <input
+            className="admin-input"
+            placeholder="Contrasena"
+            type="password"
+            value={form.password}
+            onChange={(e) => setField("password", e.target.value)}
+            required
+          />
+          <input
+            className="admin-input admin-input-small"
+            placeholder="Cupos"
+            type="number"
+            min="1"
+            value={form.cupos}
+            onChange={(e) => setField("cupos", e.target.value)}
+            required
+          />
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.disponible}
+              onChange={(e) => setField("disponible", e.target.checked)}
+            />
+            <span>Disponible</span>
+          </label>
+          <label className="admin-checkbox">
+            <input
+              type="checkbox"
+              checked={form.email_verificado}
+              onChange={(e) => setField("email_verificado", e.target.checked)}
+            />
+            <span>Crear como verificado</span>
+          </label>
+        </div>
+        <div className="admin-modal-actions">
+          <button className="admin-secondary-btn" type="button" onClick={onClose} disabled={creating}>
+            Cancelar
+          </button>
+          <button className="admin-action-btn" type="submit" disabled={creating}>
+            {creating ? "Creando..." : "Crear parqueadero"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
@@ -262,6 +284,7 @@ export default function AdminParqueaderos() {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
   const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [mensaje, setMensaje] = useState(null);
 
@@ -360,18 +383,28 @@ export default function AdminParqueaderos() {
           <h1>Gestion de parqueaderos</h1>
           <p>Edita parqueaderos, verifica cuentas o elimina registros del sistema.</p>
         </div>
-        <input
-          className="admin-search"
-          type="search"
-          placeholder="Buscar por nombre, correo o direccion"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="admin-header-actions">
+          <input
+            className="admin-search"
+            type="search"
+            placeholder="Buscar por nombre, correo o direccion"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button className="admin-action-btn" type="button" onClick={() => setCreateOpen(true)}>
+            Crear parqueadero
+          </button>
+        </div>
       </div>
 
       {mensaje && <div className={`alert alert-${mensaje.type}`}>{mensaje.text}</div>}
 
-      <AdminCreateParkingForm onCreate={handleCreate} creating={creating} />
+      <AdminCreateParkingModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreate={handleCreate}
+        creating={creating}
+      />
 
       <div className="admin-summary-grid">
         <article className="admin-summary-card">
