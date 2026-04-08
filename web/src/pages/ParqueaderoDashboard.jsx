@@ -47,6 +47,7 @@ export default function ParqueaderoDashboard() {
   const [parqueadero, setParqueadero] = useState(null);
   const [tarifas, setTarifas] = useState([]);
   const [reservasRecientes, setReservasRecientes] = useState([]);
+  const [savingAvailability, setSavingAvailability] = useState(false);
   const knownReservaIdsRef = useRef(new Set());
   const isPrimedRef = useRef(false);
   const audioContextRef = useRef(null);
@@ -229,6 +230,35 @@ export default function ParqueaderoDashboard() {
     return () => window.clearInterval(timer);
   }, [loadData, parqueaderoId]);
 
+  const handleToggleAvailability = async () => {
+    if (!parqueaderoId || !parqueadero) return;
+
+    const currentValue = parqueadero.disponible === 1 || parqueadero.disponible === true;
+    const nextValue = !currentValue;
+    setSavingAvailability(true);
+
+    try {
+      await api.put(`/parqueaderos/${parqueaderoId}/disponibilidad`, {
+        disponible: nextValue ? 1 : 0,
+      });
+
+      setParqueadero((current) => ({
+        ...current,
+        disponible: nextValue,
+      }));
+      showToast(
+        nextValue
+          ? "Tu parqueadero ahora esta disponible."
+          : "Tu parqueadero ahora no recibira reservas.",
+        "success",
+      );
+    } catch {
+      showToast("No se pudo cambiar la disponibilidad.", "error");
+    } finally {
+      setSavingAvailability(false);
+    }
+  };
+
   if (loading) {
     return (
       <section className="dashboard-page">
@@ -283,6 +313,18 @@ export default function ParqueaderoDashboard() {
             <strong className={`dashboard-stat-value ${isDisponible ? "is-available" : "is-unavailable"}`}>
               {isDisponible ? "Disponible" : "No disponible"}
             </strong>
+            <button
+              type="button"
+              className={`dashboard-availability-btn ${isDisponible ? "is-on" : "is-off"}`}
+              onClick={handleToggleAvailability}
+              disabled={savingAvailability}
+            >
+              {savingAvailability
+                ? "Cambiando..."
+                : isDisponible
+                  ? "Marcar no disponible"
+                  : "Marcar disponible"}
+            </button>
           </article>
 
           <article className="dashboard-stat-card">

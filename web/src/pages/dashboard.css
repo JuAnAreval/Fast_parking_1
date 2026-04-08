@@ -135,6 +135,35 @@
   color: #b91c1c;
 }
 
+.dashboard-availability-btn {
+  width: fit-content;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
+}
+
+.dashboard-availability-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.16);
+}
+
+.dashboard-availability-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.dashboard-availability-btn.is-on {
+  background: linear-gradient(120deg, #dc2626, #ef4444);
+}
+
+.dashboard-availability-btn.is-off {
+  background: linear-gradient(120deg, #15803d, #22c55e);
+}
+
 .dashboard-main-grid {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
