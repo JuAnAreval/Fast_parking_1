@@ -48,6 +48,7 @@ export default function ParqueaderoDashboard() {
   const [tarifas, setTarifas] = useState([]);
   const [reservasRecientes, setReservasRecientes] = useState([]);
   const [savingAvailability, setSavingAvailability] = useState(false);
+  const [showSetupModal, setShowSetupModal] = useState(false);
   const knownReservaIdsRef = useRef(new Set());
   const isPrimedRef = useRef(false);
   const audioContextRef = useRef(null);
@@ -125,6 +126,9 @@ export default function ParqueaderoDashboard() {
         setParqueadero(parking);
         setTarifas(tarifasData);
         setReservasRecientes(reservasData.slice(0, 5));
+        if (!silent && tarifasData.length === 0) {
+          setShowSetupModal(true);
+        }
 
         knownReservaIdsRef.current = new Set(
           reservasData
@@ -285,6 +289,34 @@ export default function ParqueaderoDashboard() {
   return (
     <section className="dashboard-page">
       <article className="dashboard-shell">
+        {showSetupModal && (
+          <div className="dashboard-modal-backdrop" role="presentation">
+            <article className="dashboard-setup-modal">
+              <p className="dashboard-kicker">Configuracion pendiente</p>
+              <h2>Configura tu parqueadero</h2>
+              <p>
+                Todavia no tienes tarifas configuradas. Agrega al menos una tarifa para que
+                los usuarios puedan reservar segun el tipo de vehiculo.
+              </p>
+              <div className="dashboard-modal-actions">
+                <button
+                  type="button"
+                  className="dashboard-modal-secondary"
+                  onClick={() => setShowSetupModal(false)}
+                >
+                  Mas tarde
+                </button>
+                <Link
+                  to="/configuracion-parqueadero"
+                  className="dashboard-modal-primary"
+                >
+                  Configurar ahora
+                </Link>
+              </div>
+            </article>
+          </div>
+        )}
+
         <header className="dashboard-hero">
           <div>
             <p className="dashboard-kicker">Panel operativo</p>
