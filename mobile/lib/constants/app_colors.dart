@@ -30,7 +30,7 @@ class AppColors {
   static const Color info = Color(0xFF2563EB);
 
   /// Colores de disponibilidad.
-  static Color get disponible => secondary.withValues(alpha: 0.9);
+  static const Color disponible = Color(0xFF16A34A);
   static Color get noDisponible => const Color(0xFF94A3B8);
 
   /// Derivados.

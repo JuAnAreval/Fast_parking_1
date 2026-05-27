@@ -182,18 +182,42 @@ const getReservaOwnerContext = (req) => {
 
 const reserveParkingSpot = (parqueaderoId, callback) => {
     db.query(
-        'UPDATE parqueaderos SET cupos = cupos - 1 WHERE id = ? AND cupos > 0',
+        'UPDATE parqueaderos SET cupos = cupos - 1 WHERE id = ? AND cupos > 0 AND disponible = 1',
         [parqueaderoId],
         (err, result) => {
             if (err) return callback(err);
             if (!result || result.affectedRows === 0) {
-                return callback({
-                    status: 409,
-                    body: {
-                        mensaje: 'No hay cupos disponibles en este parqueadero',
-                        message: 'No available spots in this parking',
+                return db.query(
+                    'SELECT disponible, cupos FROM parqueaderos WHERE id = ? LIMIT 1',
+                    [parqueaderoId],
+                    (findErr, rows) => {
+                        if (findErr) return callback(findErr);
+
+                        const parqueadero = Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
+                        const disponible =
+                            parqueadero?.disponible === 1 ||
+                            parqueadero?.disponible === true ||
+                            String(parqueadero?.disponible || '').toLowerCase() === 'true';
+
+                        if (parqueadero && !disponible) {
+                            return callback({
+                                status: 409,
+                                body: {
+                                    mensaje: 'Este parqueadero no esta disponible',
+                                    message: 'This parking is not available',
+                                },
+                            });
+                        }
+
+                        return callback({
+                            status: 409,
+                            body: {
+                                mensaje: 'No hay cupos disponibles en este parqueadero',
+                                message: 'No available spots in this parking',
+                            },
+                        });
                     },
-                });
+                );
             }
             return callback(null);
         },

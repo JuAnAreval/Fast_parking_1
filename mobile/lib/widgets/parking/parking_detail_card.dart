@@ -28,7 +28,7 @@ class ParkingDetailCard extends StatelessWidget {
     final statusColor = disponible
         ? AppColors.accent
         : Colors.redAccent.shade400;
-    final statusText = disponible ? "Disponible" : "Lleno";
+    final statusText = disponible ? "Disponible" : "No disponible";
 
     return Container(
       decoration: BoxDecoration(
@@ -68,7 +68,7 @@ class ParkingDetailCard extends StatelessWidget {
           const SizedBox(height: 12),
           _buildTarifasSection(),
           const SizedBox(height: 20),
-          _buildReservarButton(),
+          _buildReservarButton(disponible),
         ],
       ),
     );
@@ -315,13 +315,15 @@ class ParkingDetailCard extends StatelessWidget {
     return 'N/A';
   }
 
-  Widget _buildReservarButton() {
+  Widget _buildReservarButton(bool disponible) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: onReservar,
+        onPressed: disponible ? onReservar : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: disponible
+              ? AppColors.primary
+              : AppColors.textSecondary.withValues(alpha: 0.55),
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -329,9 +331,11 @@ class ParkingDetailCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 14),
           elevation: 2,
         ),
-        icon: const Icon(Icons.bookmark_add_rounded),
-        label: const Text(
-          "Reservar Cupo",
+        icon: Icon(
+          disponible ? Icons.bookmark_add_rounded : Icons.block_rounded,
+        ),
+        label: Text(
+          disponible ? "Reservar Cupo" : "No disponible",
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
       ),
