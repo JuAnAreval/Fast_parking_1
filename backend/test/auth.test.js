@@ -8,8 +8,10 @@ describe('Auth endpoints', () => {
     const timestamp = Date.now();
     const email = `prueba+${timestamp}@gmail.com`;
     const password = '123456';
+    const newPassword = '654321';
     const telefono = '3001234567';
     let verificationToken;
+    let passwordResetToken;
 
     test('register user missing fields should return 400', async () => {
         const res = await request(app).post('/api/auth/register').send({ email });
@@ -42,6 +44,27 @@ describe('Auth endpoints', () => {
     test('login wrong password should return 401', async () => {
         const res = await request(app).post('/api/auth/login').send({ email, password: 'wrong' });
         expect(res.statusCode).toBe(401);
+    });
+
+    test('request password reset should return preview token in test', async () => {
+        const res = await request(app).post('/api/auth/forgot-password').send({ email });
+        expect(res.statusCode).toBe(200);
+        expect(res.body.reset_preview_token).toBeTruthy();
+        passwordResetToken = res.body.reset_preview_token;
+    });
+
+    test('reset password should allow login with new credentials', async () => {
+        const resetRes = await request(app)
+            .post('/api/auth/reset-password')
+            .send({ token: passwordResetToken, password: newPassword });
+        expect(resetRes.statusCode).toBe(200);
+
+        const oldLoginRes = await request(app).post('/api/auth/login').send({ email, password });
+        expect(oldLoginRes.statusCode).toBe(401);
+
+        const newLoginRes = await request(app).post('/api/auth/login').send({ email, password: newPassword });
+        expect(newLoginRes.statusCode).toBe(200);
+        expect(newLoginRes.body).toHaveProperty('token');
     });
 });
 

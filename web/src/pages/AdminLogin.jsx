@@ -89,6 +89,15 @@ export default function AdminLogin() {
       </form>
 
       <p className="register-text">
+        Olvidaste tu contrasena?{" "}
+        <Link
+          to={`/forgot-password?actor=usuario&email=${encodeURIComponent(email.trim())}`}
+          className="link"
+        >
+          Recuperarla aqui
+        </Link>
+      </p>
+      <p className="register-text">
         Volver al panel de parqueaderos?{" "}
         <Link to="/" className="link">
           Ingresar aqui

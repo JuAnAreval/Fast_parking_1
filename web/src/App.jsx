@@ -8,10 +8,12 @@ import AdminDashboard from "./pages/AdminDashboard";
 import AdminLogin from "./pages/AdminLogin";
 import AdminParqueaderos from "./pages/AdminParqueaderos";
 import EmailVerification from "./pages/EmailVerification";
+import ForgotPassword from "./pages/ForgotPassword";
 import Login from "./pages/Login";
 import ParqueaderoDashboard from "./pages/ParqueaderoDashboard";
 import ParqueaderoReservas from "./pages/ParqueaderoReservas";
 import RegisterParqueadero from "./pages/RegisterParqueadero";
+import ResetPassword from "./pages/ResetPassword";
 import Reservas from "./pages/Reservas";
 import { isAdminAuthenticated, isParqueaderoAuthenticated } from "./utils/session";
 import "./App.css";
@@ -39,6 +41,12 @@ const AdminAuthLayout = () => {
     </div>
   );
 };
+
+const PublicAuthLayout = () => (
+  <div className="auth-layout">
+    <Outlet />
+  </div>
+);
 
 const ParqueaderoLayout = () => (
   <ProtectedRoute actor="parqueadero">
@@ -86,6 +94,10 @@ function App() {
         </Route>
 
         <Route path="/verify-email" element={<EmailVerification />} />
+        <Route element={<PublicAuthLayout />}>
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+        </Route>
 
         <Route element={<ParqueaderoLayout />}>
           <Route path="/dashboard" element={<ParqueaderoDashboard />} />

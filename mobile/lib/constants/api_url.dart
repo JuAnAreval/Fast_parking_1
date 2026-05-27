@@ -6,6 +6,7 @@ class ApiUrl {
   const ApiUrl._();
 
   static const ApiEnvironment environment = ApiEnvironment.production;
+  static const String webPanelUrl = 'https://panel-web-production.up.railway.app';
 
   static const _ApiTarget _local = _ApiTarget(
     scheme: 'http',

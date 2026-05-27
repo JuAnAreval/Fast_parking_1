@@ -2,6 +2,7 @@
 const bcrypt = require('bcryptjs');
 const { ACTOR_TYPES, signParqueaderoToken } = require('../middlewares/auth');
 const { issueVerificationForRecord, verifyEmailToken } = require('../services/verificationService');
+const { requestPasswordReset, resetPassword } = require('../services/passwordResetService');
 
 const toPositiveInt = (value) => {
     const n = Number(value);
@@ -547,4 +548,52 @@ exports.verificarEmail = async (req, res) => {
     }
 };
 
+exports.solicitarRecuperacionPassword = async (req, res) => {
+    try {
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const result = await requestPasswordReset('parqueadero', email);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: 'Si el correo existe, enviaremos un enlace para restablecer la contrasena.',
+            message: 'If the email exists, a password reset link will be sent.',
+            ...(process.env.NODE_ENV === 'test'
+                ? {
+                    reset_preview_token: result.token,
+                    reset_preview_url: result.resetUrl,
+                }
+                : {}),
+        });
+    } catch (err) {
+        console.error('Error solicitando recuperacion de password parqueadero:', err);
+        return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+    }
+};
+
+exports.resetearPassword = async (req, res) => {
+    try {
+        const token = String(req.body?.token || '').trim();
+        const password = String(req.body?.password || req.body?.newPassword || '');
+        const result = await resetPassword('parqueadero', token, password);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: 'Contrasena actualizada correctamente',
+            message: 'Password updated successfully',
+        });
+    } catch (err) {
+        console.error('Error reseteando password parqueadero:', err);
+        return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+    }
+};
 

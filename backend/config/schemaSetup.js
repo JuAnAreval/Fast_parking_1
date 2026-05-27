@@ -41,11 +41,15 @@ const ensureApplicationSchema = async () => {
             await ensureColumn('usuarios', 'verification_token_hash', 'VARCHAR(255) NULL');
             await ensureColumn('usuarios', 'verification_token_expires_at', 'DATETIME NULL');
             await ensureColumn('usuarios', 'email_verificado_en', 'DATETIME NULL');
+            await ensureColumn('usuarios', 'password_reset_token_hash', 'VARCHAR(255) NULL');
+            await ensureColumn('usuarios', 'password_reset_expires_at', 'DATETIME NULL');
 
             await ensureColumn('parqueaderos', 'email_verificado', 'TINYINT(1) NOT NULL DEFAULT 0');
             await ensureColumn('parqueaderos', 'verification_token_hash', 'VARCHAR(255) NULL');
             await ensureColumn('parqueaderos', 'verification_token_expires_at', 'DATETIME NULL');
             await ensureColumn('parqueaderos', 'email_verificado_en', 'DATETIME NULL');
+            await ensureColumn('parqueaderos', 'password_reset_token_hash', 'VARCHAR(255) NULL');
+            await ensureColumn('parqueaderos', 'password_reset_expires_at', 'DATETIME NULL');
 
             const adminBootstrapEmail = String(process.env.ADMIN_BOOTSTRAP_EMAIL || '').trim().toLowerCase();
             if (adminBootstrapEmail) {

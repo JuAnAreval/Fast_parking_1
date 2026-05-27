@@ -115,6 +115,15 @@ export default function Login() {
       </form>
 
       <p className="register-text">
+        Olvidaste tu contrasena?{" "}
+        <Link
+          to={`/forgot-password?actor=parqueadero&email=${encodeURIComponent(email.trim())}`}
+          className="link"
+        >
+          Recuperarla aqui
+        </Link>
+      </p>
+      <p className="register-text">
         No tienes cuenta?{" "}
         <Link to="/register-parqueadero" className="link">
           Registrate aqui

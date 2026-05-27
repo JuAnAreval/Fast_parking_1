@@ -12,8 +12,11 @@
     verification_token_hash VARCHAR(255) NULL,
     verification_token_expires_at DATETIME NULL,
     email_verificado_en DATETIME NULL,
+    password_reset_token_hash VARCHAR(255) NULL,
+    password_reset_expires_at DATETIME NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_usuarios_verification_token_hash (verification_token_hash)
+    INDEX idx_usuarios_verification_token_hash (verification_token_hash),
+    INDEX idx_usuarios_password_reset_token_hash (password_reset_token_hash)
   );
 
   DROP TABLE IF EXISTS parqueaderos;
@@ -31,8 +34,11 @@
     verification_token_hash VARCHAR(255) NULL,
     verification_token_expires_at DATETIME NULL,
     email_verificado_en DATETIME NULL,
+    password_reset_token_hash VARCHAR(255) NULL,
+    password_reset_expires_at DATETIME NULL,
     creado_en TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    INDEX idx_parqueaderos_verification_token_hash (verification_token_hash)
+    INDEX idx_parqueaderos_verification_token_hash (verification_token_hash),
+    INDEX idx_parqueaderos_password_reset_token_hash (password_reset_token_hash)
   );
 
   DROP TABLE IF EXISTS tarifas;

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/constants.dart';
 import '../services/api_service.dart';
@@ -88,6 +89,25 @@ class _LoginScreenState extends State<LoginScreen> {
       if (mounted) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _openForgotPassword() async {
+    final email = _emailController.text.trim();
+    final query = {
+      'actor': 'usuario',
+      if (email.isNotEmpty) 'email': email,
+    };
+    final uri = Uri.parse(
+      '${ApiUrl.webPanelUrl}/forgot-password',
+    ).replace(queryParameters: query);
+
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      _showMessage(
+        'No se pudo abrir la pagina de recuperacion.',
+        color: AppColors.error,
+      );
     }
   }
 
@@ -259,6 +279,10 @@ class _LoginScreenState extends State<LoginScreen> {
               TextButton(
                 onPressed: () => Navigator.pushNamed(context, '/register'),
                 child: const Text('No tienes cuenta? Registrate aqui'),
+              ),
+              TextButton(
+                onPressed: _loading ? null : _openForgotPassword,
+                child: const Text('Olvidaste tu contrasena?'),
               ),
             ],
           ),

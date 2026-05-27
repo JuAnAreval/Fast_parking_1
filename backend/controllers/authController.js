@@ -5,6 +5,10 @@ const {
     issueVerificationForRecord,
     verifyEmailToken,
 } = require("../services/verificationService");
+const {
+    requestPasswordReset,
+    resetPassword,
+} = require("../services/passwordResetService");
 
 const PHONE_REGEX = /^\+?[0-9()\-\s]{7,20}$/;
 
@@ -160,6 +164,55 @@ exports.verificarEmail = async (req, res) => {
         });
     } catch (err) {
         console.error('Error verificando email de usuario:', err);
+        return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
+    }
+};
+
+exports.solicitarRecuperacionPassword = async (req, res) => {
+    try {
+        const email = String(req.body?.email || '').trim().toLowerCase();
+        const result = await requestPasswordReset('usuario', email);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: 'Si el correo existe, enviaremos un enlace para restablecer la contrasena.',
+            message: 'If the email exists, a password reset link will be sent.',
+            ...(process.env.NODE_ENV === 'test'
+                ? {
+                    reset_preview_token: result.token,
+                    reset_preview_url: result.resetUrl,
+                }
+                : {}),
+        });
+    } catch (err) {
+        console.error('Error solicitando recuperacion de password usuario:', err);
+        return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
+    }
+};
+
+exports.resetearPassword = async (req, res) => {
+    try {
+        const token = String(req.body?.token || '').trim();
+        const password = String(req.body?.password || req.body?.newPassword || '');
+        const result = await resetPassword('usuario', token, password);
+        if (!result.ok) {
+            return res.status(result.status).json({
+                mensaje: result.message,
+                message: result.message,
+            });
+        }
+
+        return res.json({
+            mensaje: 'Contrasena actualizada correctamente',
+            message: 'Password updated successfully',
+        });
+    } catch (err) {
+        console.error('Error reseteando password usuario:', err);
         return res.status(500).json({ mensaje: "Error interno", message: "Internal server error" });
     }
 };

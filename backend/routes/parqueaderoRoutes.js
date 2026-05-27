@@ -14,6 +14,8 @@ router.get('/:id/tarifas', parqueaderoController.getTarifas);
 
 router.post('/register', parqueaderoController.registerParqueadero);
 router.post('/login', parqueaderoController.loginParqueadero);
+router.post('/forgot-password', parqueaderoController.solicitarRecuperacionPassword);
+router.post('/reset-password', parqueaderoController.resetearPassword);
 
 router.put('/:id', requireParqueaderoAuth, requireSameParqueaderoParam('id'), parqueaderoController.updateParqueadero);
 router.put('/:id/disponibilidad', requireParqueaderoAuth, requireSameParqueaderoParam('id'), parqueaderoController.updateDisponibilidad);
