@@ -6,11 +6,11 @@ dotenv.config();
 
 const cors = require("cors");
 const { ensureApplicationSchema } = require("./config/schemaSetup");
-const adminRoutes = require("./routes/adminRoutes");
-const authRoutes = require("./routes/authRoutes");
-const parqueaderoRoutes = require("./routes/parqueaderoRoutes");
-const reservasRoutes = require("./routes/reservasRoutes");
-const vehiculosRoutes = require("./routes/vehiculosRoutes");
+const adminController = require("./controllers/adminController");
+const authController = require("./controllers/authController");
+const parqueaderoController = require("./controllers/parqueaderoController");
+const reservaController = require("./controllers/reservaController");
+const vehiculoController = require("./controllers/vehiculoController");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -48,11 +48,11 @@ app.use(async (_req, _res, next) => {
 app.get("/", (_req, res) => res.json({ status: "ok", message: "Backend up" }));
 app.get("/health", (_req, res) => res.json({ status: "ok", message: "Healthy" }));
 
-app.use("/api/admin", adminRoutes);
-app.use("/api/auth", authRoutes);
-app.use("/api/parqueaderos", parqueaderoRoutes);
-app.use("/api/reservas", reservasRoutes);
-app.use("/api/vehiculos", vehiculosRoutes);
+app.use("/api/admin", adminController);
+app.use("/api/auth", authController);
+app.use("/api/parqueaderos", parqueaderoController);
+app.use("/api/reservas", reservaController);
+app.use("/api/vehiculos", vehiculoController);
 
 if (process.env.NODE_ENV !== "test") {
     app.listen(PORT, "0.0.0.0", () => {
