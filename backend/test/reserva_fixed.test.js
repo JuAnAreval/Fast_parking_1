@@ -8,37 +8,35 @@ describe('Reserva endpoints', () => {
     let userToken, parqueaderoToken, parqueaderoId, reservaId, userId;
 
     beforeAll(async () => {
-        // Usar usuario existente juan@gmail.com
-        const userEmail = 'juan@gmail.com';
+        const timestamp = Date.now();
+        const userEmail = `reserva.user+${timestamp}@gmail.com`;
         const userPassword = '123456';
+        const registerUserRes = await request(app)
+            .post('/api/auth/register')
+            .send({
+                nombre: 'Reserva Fixed User',
+                email: userEmail,
+                password: userPassword,
+                telefono: '3001112233',
+            });
 
-        await new Promise((resolve, reject) => {
-            db.query(
-                `
-                    UPDATE usuarios
-                    SET email_verificado = 1,
-                        email_verificado_en = NOW()
-                    WHERE email = ?
-                `,
-                [userEmail],
-                (err, result) => (err ? reject(err) : resolve(result)),
-            );
-        });
+        expect([200, 201]).toContain(registerUserRes.statusCode);
+        expect(registerUserRes.body.verification_preview_token).toBeTruthy();
 
-        // Login usuario existente
+        await request(app).get(`/api/auth/verify-email?token=${registerUserRes.body.verification_preview_token}`);
+
         const loginRes = await request(app)
             .post('/api/auth/login')
             .send({ email: userEmail, password: userPassword });
 
+        expect(loginRes.statusCode).toBe(200);
+        expect(loginRes.body.token).toBeTruthy();
         userToken = loginRes.body.token;
 
-        // Extraer userId del token
         const jwt = require('jsonwebtoken');
         const decoded = jwt.verify(userToken, process.env.JWT_SECRET || 'secreto123');
         userId = decoded.id;
 
-        // Crear parqueadero de prueba
-        const timestamp = Date.now();
         const parqueaderoEmail = `parqueadero+${timestamp}@gmail.com`;
         const parqueaderoRes = await request(app)
             .post('/api/parqueaderos/register')
@@ -121,6 +119,51 @@ describe('Reserva endpoints', () => {
             .set('Authorization', `Bearer ${userToken}`);
 
         expect(res.statusCode).toBe(403);
+    });
+
+    test('reserva pendiente expirada se cancela automaticamente al intentar autorizar', async () => {
+        const createRes = await request(app)
+            .post('/api/reservas')
+            .set('Authorization', `Bearer ${userToken}`)
+            .send({
+                parqueadero_id: parqueaderoId,
+                tipo_vehiculo: 'carro',
+                observaciones: 'Expiracion automatica',
+            });
+
+        expect([200, 201]).toContain(createRes.statusCode);
+        expect(createRes.body.id).toBeTruthy();
+        const expiringReservaId = createRes.body.id;
+
+        await new Promise((resolve, reject) => {
+            db.query(
+                `
+                    UPDATE reservas
+                    SET fecha_reserva = CURDATE(),
+                        hora_inicio = DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MINUTE), '%H:%i:%s'),
+                        estado = 'pendiente'
+                    WHERE id = ?
+                `,
+                [expiringReservaId],
+                (err, result) => (err ? reject(err) : resolve(result)),
+            );
+        });
+
+        const authorizeRes = await request(app)
+            .put(`/api/reservas/${expiringReservaId}/autorizar-ingreso`)
+            .set('Authorization', `Bearer ${userToken}`);
+
+        expect(authorizeRes.statusCode).toBe(404);
+
+        const estadoRows = await new Promise((resolve, reject) => {
+            db.query(
+                'SELECT estado FROM reservas WHERE id = ? LIMIT 1',
+                [expiringReservaId],
+                (err, results) => (err ? reject(err) : resolve(results || [])),
+            );
+        });
+
+        expect(estadoRows[0]?.estado).toBe('cancelada');
     });
 
     test('cancelar reserva should succeed', async () => {
