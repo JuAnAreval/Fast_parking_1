@@ -266,6 +266,105 @@ const emitReservaEvent = (parqueaderoId, event, payload) => {
     }
 };
 
+const PENDING_RESERVA_EXPIRATION_MINUTES = Math.max(
+    1,
+    Number(process.env.PENDING_RESERVA_EXPIRATION_MINUTES || 15),
+);
+const RESERVA_AUTO_CANCEL_INTERVAL_MS = Math.max(
+    15000,
+    Number(process.env.RESERVA_AUTO_CANCEL_INTERVAL_MS || 60000),
+);
+
+const cancelExpiredPendingReservationsInternal = (callback) => {
+    const sqlCondition = `
+        estado = 'pendiente'
+        AND (
+            (hora_inicio IS NOT NULL AND TIMESTAMP(fecha_reserva, hora_inicio) <= NOW())
+            OR (hora_inicio IS NULL AND TIMESTAMPDIFF(MINUTE, creado_en, NOW()) >= ?)
+        )
+    `;
+
+    const sqlCount = `
+        SELECT parqueadero_id, COUNT(*) AS cantidad
+        FROM reservas
+        WHERE ${sqlCondition}
+        GROUP BY parqueadero_id
+    `;
+
+    const sqlCancel = `
+        UPDATE reservas
+        SET estado = 'cancelada'
+        WHERE ${sqlCondition}
+    `;
+
+    db.query(sqlCount, [PENDING_RESERVA_EXPIRATION_MINUTES], (countErr, countResults) => {
+        if (countErr) return callback(countErr);
+
+        db.query(sqlCancel, [PENDING_RESERVA_EXPIRATION_MINUTES], (cancelErr, cancelResult) => {
+            if (cancelErr) return callback(cancelErr);
+
+            const increments = Array.isArray(countResults) ? countResults : [];
+            if (increments.length === 0) {
+                return callback(null, { affected: cancelResult?.affectedRows || 0 });
+            }
+
+            let pending = increments.length;
+            let incrementError = null;
+
+            increments.forEach((row) => {
+                const parqueaderoId = toPositiveInt(row.parqueadero_id);
+                const cantidad = toPositiveInt(row.cantidad);
+                if (!parqueaderoId || !cantidad) {
+                    pending -= 1;
+                    if (pending === 0) {
+                        if (incrementError) return callback(incrementError);
+                        return callback(null, { affected: cancelResult?.affectedRows || 0 });
+                    }
+                    return;
+                }
+
+                db.query(
+                    'UPDATE parqueaderos SET cupos = cupos + ? WHERE id = ?',
+                    [cantidad, parqueaderoId],
+                    (incErr) => {
+                        if (incErr) {
+                            console.error('Error al liberar cupos por expiracion:', incErr);
+                            incrementError = incErr;
+                        } else {
+                            emitReservaEvent(parqueaderoId, 'reservas_expiradas', {
+                                parqueadero_id: parqueaderoId,
+                                cantidad,
+                                estado: 'cancelada',
+                            });
+                        }
+
+                        pending -= 1;
+                        if (pending === 0) {
+                            if (incrementError) return callback(incrementError);
+                            return callback(null, { affected: cancelResult?.affectedRows || 0 });
+                        }
+                    },
+                );
+            });
+        });
+    });
+};
+
+const autoCancelExpiredReservations = () => {
+    cancelExpiredPendingReservationsInternal((err) => {
+        if (err) {
+            console.error('Error en auto-cancelacion de reservas expiradas:', err);
+        }
+    });
+};
+
+if (process.env.NODE_ENV !== 'test') {
+    const autoCancelTimer = setInterval(autoCancelExpiredReservations, RESERVA_AUTO_CANCEL_INTERVAL_MS);
+    if (typeof autoCancelTimer.unref === 'function') {
+        autoCancelTimer.unref();
+    }
+}
+
 // Stream SSE para notificar reservas en tiempo real al panel web del parqueadero.
 exports.streamReservasParqueadero = (req, res) => {
     const parqueaderoId = toPositiveInt(req.params.parqueaderoId);
@@ -423,7 +522,13 @@ exports.crearReserva = (req, res) => {
         return callback(null, null);
     };
 
-    resolveVehicleAndType((vehicleResolveErr, vehiculoData) => {
+    cancelExpiredPendingReservationsInternal((cleanupErr) => {
+        if (cleanupErr) {
+            console.error('Error cancelando reservas pendientes expiradas antes de crear:', cleanupErr);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        return resolveVehicleAndType((vehicleResolveErr, vehiculoData) => {
         if (vehicleResolveErr) {
             if (vehicleResolveErr.status && vehicleResolveErr.body) {
                 return res.status(vehicleResolveErr.status).json(vehicleResolveErr.body);
@@ -712,6 +817,7 @@ exports.crearReserva = (req, res) => {
             }
             return insertReservation(0, 0, horaInicioToUse, null);
         });
+        });
     });
 };
 
@@ -900,7 +1006,13 @@ exports.autorizarIngreso = (req, res) => {
         return res.status(401).json({ mensaje: 'No autorizado', message: 'Unauthorized' });
     }
 
-    db.query(
+    cancelExpiredPendingReservationsInternal((cleanupErr) => {
+        if (cleanupErr) {
+            console.error('Error cancelando reservas pendientes expiradas antes de autorizar:', cleanupErr);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        return db.query(
         `SELECT parqueadero_id
          FROM reservas
          WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado = "pendiente"
@@ -945,6 +1057,7 @@ exports.autorizarIngreso = (req, res) => {
             );
         },
     );
+    });
 };
 
 // Marcar llegada real
@@ -963,7 +1076,13 @@ exports.marcarLlegada = (req, res) => {
         SET fecha_reserva = CURDATE(), hora_inicio = CURTIME(), estado = "activa"
         WHERE id = ? AND ${ownerContext.ownerColumn} = ? AND estado = "pendiente"
     `;
-    db.query(sql, [id, ownerContext.actorId], (err, result) => {
+    cancelExpiredPendingReservationsInternal((cleanupErr) => {
+        if (cleanupErr) {
+            console.error('Error cancelando reservas pendientes expiradas antes de marcar llegada:', cleanupErr);
+            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
+        }
+
+        return db.query(sql, [id, ownerContext.actorId], (err, result) => {
         if (err) {
             console.error('Error al marcar llegada:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
@@ -980,6 +1099,7 @@ exports.marcarLlegada = (req, res) => {
             }
         });
         return res.json({ mensaje: 'Llegada registrada', message: 'Arrival recorded', estado: 'activa' });
+    });
     });
 };
 
@@ -1176,87 +1296,18 @@ exports.getReservasParqueadero = (req, res) => {
     });
 };
 
-// Cancelar reservas pendientes expiradas (>15 minutos)
+// Cancelar reservas pendientes expiradas (cuando vence hora_inicio o por antiguedad sin hora_inicio).
 exports.cancelarReservasExpiradas = (req, res) => {
-    const sqlConteo = `
-        SELECT parqueadero_id, COUNT(*) AS cantidad
-        FROM reservas
-        WHERE estado = 'pendiente'
-          AND TIMESTAMPDIFF(MINUTE, creado_en, NOW()) > 15
-        GROUP BY parqueadero_id
-    `;
-
-    const sql = `
-        UPDATE reservas
-        SET estado = 'cancelada'
-        WHERE estado = 'pendiente'
-          AND TIMESTAMPDIFF(MINUTE, creado_en, NOW()) > 15
-    `;
-
-    db.query(sqlConteo, (countErr, countResults) => {
-        if (countErr) {
-            console.error('Error al contar reservas expiradas:', countErr);
+    cancelExpiredPendingReservationsInternal((err, summary) => {
+        if (err) {
+            console.error('Error al cancelar reservas expiradas:', err);
             return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
         }
 
-        db.query(sql, (err, result) => {
-            if (err) {
-                console.error('Error al cancelar reservas expiradas:', err);
-                return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
-            }
-
-            const increments = Array.isArray(countResults) ? countResults : [];
-            if (increments.length === 0) {
-                return res.json({
-                    mensaje: 'Reservas expiradas canceladas',
-                    message: 'Expired reservations cancelled',
-                    affected: result.affectedRows,
-                });
-            }
-
-            let pending = increments.length;
-            let incrementError = null;
-
-            increments.forEach((row) => {
-                const parqueaderoId = toPositiveInt(row.parqueadero_id);
-                const cantidad = toPositiveInt(row.cantidad);
-                if (!parqueaderoId || !cantidad) {
-                    pending -= 1;
-                    if (pending === 0) {
-                        if (incrementError) {
-                            return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
-                        }
-                        return res.json({
-                            mensaje: 'Reservas expiradas canceladas',
-                            message: 'Expired reservations cancelled',
-                            affected: result.affectedRows,
-                        });
-                    }
-                    return;
-                }
-
-                db.query(
-                    'UPDATE parqueaderos SET cupos = cupos + ? WHERE id = ?',
-                    [cantidad, parqueaderoId],
-                    (incErr) => {
-                        if (incErr) {
-                            console.error('Error al liberar cupos por expiracion:', incErr);
-                            incrementError = incErr;
-                        }
-                        pending -= 1;
-                        if (pending === 0) {
-                            if (incrementError) {
-                                return res.status(500).json({ mensaje: 'Error interno', message: 'Internal server error' });
-                            }
-                            return res.json({
-                                mensaje: 'Reservas expiradas canceladas',
-                                message: 'Expired reservations cancelled',
-                                affected: result.affectedRows,
-                            });
-                        }
-                    },
-                );
-            });
+        return res.json({
+            mensaje: 'Reservas expiradas canceladas',
+            message: 'Expired reservations cancelled',
+            affected: Number(summary?.affected || 0),
         });
     });
 };
